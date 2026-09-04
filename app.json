@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "MRI Safety QuickCheck",
+    "slug": "mri-safety-quickcheck",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "mrisafetyquickcheck",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "plugins": ["expo-router", "expo-secure-store"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.mriguru.mrisafetyquickcheck",
+      "buildNumber": "1",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "com.mriguru.mrisafetyquickcheck"
+    },
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
