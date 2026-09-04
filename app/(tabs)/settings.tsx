@@ -27,7 +27,7 @@ export default function SettingsScreen() {
   return (
     <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={{ padding: 16, paddingBottom: 48, gap: 18 }}>
       <View style={{ gap: 5 }}>
-        <Text selectable style={{ color: palette.text, fontSize: 28, fontWeight: '850', letterSpacing: -0.8 }}>Settings</Text>
+        <Text selectable style={{ color: palette.text, fontSize: 28, fontWeight: '900', letterSpacing: -0.8 }}>Settings</Text>
         <Text selectable style={{ color: palette.muted, fontSize: 14, lineHeight: 20 }}>MRI Safety QuickCheck · iPhone-first clinical decision support.</Text>
       </View>
 
@@ -40,12 +40,12 @@ export default function SettingsScreen() {
       </View>
 
       <View style={{ backgroundColor: palette.unknownSoft, borderRadius: radii.lg, borderCurve: 'continuous', padding: 18, gap: 8 }}>
-        <Text selectable style={{ color: palette.text, fontWeight: '850' }}>Clinical disclaimer</Text>
+        <Text selectable style={{ color: palette.text, fontWeight: '900' }}>Clinical disclaimer</Text>
         <Text selectable style={{ color: palette.muted, fontSize: 13, lineHeight: 19 }}>This application is decision support. MRI personnel remain responsible for confirming the exact implant, current manufacturer MRI labeling, patient-specific conditions, scanner settings, and facility policy before scanning.</Text>
       </View>
 
       <Pressable onPress={signOut} style={{ minHeight: 50, borderRadius: radii.md, borderWidth: 1, borderColor: palette.danger, alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ color: palette.danger, fontSize: 15, fontWeight: '850' }}>Sign out</Text>
+        <Text style={{ color: palette.danger, fontSize: 15, fontWeight: '900' }}>Sign out</Text>
       </Pressable>
     </ScrollView>
   );
