@@ -54,7 +54,7 @@ export default function DashboardScreen() {
             <Image source="sf:arrow.up.right" style={{ width: 22, height: 22 }} tintColor={palette.white} />
           </View>
           <View style={{ gap: 5 }}>
-            <Text selectable style={{ color: palette.white, fontSize: 28, fontWeight: '850', letterSpacing: -0.8 }}>New QuickCheck</Text>
+            <Text selectable style={{ color: palette.white, fontSize: 28, fontWeight: '900', letterSpacing: -0.8 }}>New QuickCheck</Text>
             <Text selectable style={{ color: 'rgba(255,255,255,0.82)', fontSize: 15, lineHeight: 21 }}>Scanner → device → exact components → manufacturer conditions.</Text>
           </View>
         </Pressable>
