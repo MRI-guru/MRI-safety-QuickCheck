@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, InputAccessoryView, Keyboard, Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
@@ -14,43 +14,151 @@ type Profile = {
   is_default: boolean;
 };
 
+type ScannerOption = {
+  id: string;
+  manufacturer: string;
+  model: string;
+  field_strength_t: number;
+};
+
+type OpenMenu = 'manufacturer' | 'model' | 'strength' | null;
+
 const SCANNER_FORM_ACCESSORY_ID = 'scanner-form-keyboard-accessory';
+
+function Dropdown({
+  label,
+  value,
+  placeholder,
+  open,
+  onToggle,
+  options,
+  onSelect,
+  disabled = false
+}: {
+  label: string;
+  value: string;
+  placeholder: string;
+  open: boolean;
+  onToggle: () => void;
+  options: string[];
+  onSelect: (value: string) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <View style={{ gap: 6 }}>
+      <Text selectable style={{ color: palette.muted, fontSize: 12, fontWeight: '700' }}>{label}</Text>
+      <Pressable
+        disabled={disabled}
+        onPress={() => { Keyboard.dismiss(); onToggle(); }}
+        style={{
+          minHeight: 48,
+          borderRadius: radii.md,
+          paddingHorizontal: 13,
+          backgroundColor: palette.bg,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          opacity: disabled ? 0.45 : 1
+        }}
+      >
+        <Text style={{ color: value ? palette.text : palette.muted, fontSize: 15, flex: 1 }}>{value || placeholder}</Text>
+        <Text style={{ color: palette.brand, fontSize: 16, fontWeight: '800' }}>{open ? '▲' : '▼'}</Text>
+      </Pressable>
+      {open ? (
+        <View style={{ borderWidth: 1, borderColor: palette.line, borderRadius: radii.md, overflow: 'hidden', backgroundColor: palette.surface }}>
+          {options.length ? options.map((option, index) => (
+            <Pressable
+              key={option}
+              onPress={() => onSelect(option)}
+              style={{
+                paddingHorizontal: 14,
+                paddingVertical: 13,
+                backgroundColor: option === value ? palette.brandSoft : palette.surface,
+                borderTopWidth: index === 0 ? 0 : 1,
+                borderTopColor: palette.line
+              }}
+            >
+              <Text style={{ color: option === value ? palette.brand : palette.text, fontSize: 15, fontWeight: option === value ? '800' : '600' }}>{option}</Text>
+            </Pressable>
+          )) : (
+            <Text style={{ padding: 14, color: palette.muted, fontSize: 13 }}>No choices available.</Text>
+          )}
+        </View>
+      ) : null}
+    </View>
+  );
+}
 
 export default function ScannersScreen() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [catalog, setCatalog] = useState<ScannerOption[]>([]);
   const [manufacturer, setManufacturer] = useState('');
   const [model, setModel] = useState('');
-  const [strength, setStrength] = useState('1.5');
+  const [strength, setStrength] = useState('');
   const [nickname, setNickname] = useState('');
   const [isDefault, setIsDefault] = useState(true);
+  const [openMenu, setOpenMenu] = useState<OpenMenu>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
 
   async function load() {
-    const { data, error } = await supabase.rpc('quickcheck_list_scanner_profiles');
-    if (error) setMessage(error.message);
-    else setProfiles((data ?? []) as Profile[]);
+    const [{ data: profileData, error: profileError }, { data: scannerData, error: scannerError }] = await Promise.all([
+      supabase.rpc('quickcheck_list_scanner_profiles'),
+      supabase.rpc('quickcheck_scanner_options')
+    ]);
+    if (profileError) setMessage(profileError.message);
+    else setProfiles((profileData ?? []) as Profile[]);
+    if (scannerError) setMessage(scannerError.message);
+    else setCatalog((scannerData ?? []) as ScannerOption[]);
   }
 
   useEffect(() => { load(); }, []);
 
+  const manufacturers = useMemo(
+    () => Array.from(new Set(catalog.map((row) => row.manufacturer).filter(Boolean))).sort(),
+    [catalog]
+  );
+
+  const models = useMemo(
+    () => Array.from(new Set(catalog.filter((row) => row.manufacturer === manufacturer).map((row) => row.model).filter(Boolean))).sort(),
+    [catalog, manufacturer]
+  );
+
+  const strengths = useMemo(
+    () => Array.from(new Set(
+      catalog
+        .filter((row) => row.manufacturer === manufacturer && row.model === model)
+        .map((row) => Number(row.field_strength_t))
+        .filter((value) => Number.isFinite(value))
+    )).sort((a, b) => a - b).map((value) => `${value}T`),
+    [catalog, manufacturer, model]
+  );
+
   async function save() {
     Keyboard.dismiss();
-    if (!manufacturer.trim() || !model.trim() || !Number(strength)) return;
+    setOpenMenu(null);
+    const numericStrength = Number(strength.replace('T', ''));
+    if (!manufacturer || !model || !numericStrength) {
+      setMessage('Select manufacturer, model, and field strength.');
+      return;
+    }
     setBusy(true);
     setMessage('');
     const { error } = await supabase.rpc('quickcheck_save_scanner_profile', {
       p_id: null,
-      p_manufacturer: manufacturer.trim(),
-      p_model: model.trim(),
-      p_field_strength_t: Number(strength),
+      p_manufacturer: manufacturer,
+      p_model: model,
+      p_field_strength_t: numericStrength,
       p_nickname: nickname.trim() || null,
       p_is_default: isDefault
     });
     setBusy(false);
     if (error) return setMessage(error.message);
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setManufacturer(''); setModel(''); setNickname('');
+    setManufacturer('');
+    setModel('');
+    setStrength('');
+    setNickname('');
     setMessage('Scanner saved.');
     load();
   }
@@ -61,12 +169,12 @@ export default function ScannersScreen() {
         contentInsetAdjustmentBehavior="automatic"
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="interactive"
-        onScrollBeginDrag={Keyboard.dismiss}
+        onScrollBeginDrag={() => { Keyboard.dismiss(); setOpenMenu(null); }}
         contentContainerStyle={{ padding: 16, paddingBottom: 48, gap: 18 }}
       >
         <View style={{ gap: 5 }}>
           <Text selectable style={{ color: palette.text, fontSize: 28, fontWeight: '900', letterSpacing: -0.8 }}>Your MRI scanners</Text>
-          <Text selectable style={{ color: palette.muted, fontSize: 14, lineHeight: 20 }}>Save the scanner make, model, and field strength used at your facility. QuickCheck carries this profile into the audit record.</Text>
+          <Text selectable style={{ color: palette.muted, fontSize: 14, lineHeight: 20 }}>Save scanners used at your facility. Choose the manufacturer, model, and field strength from the verified scanner catalog.</Text>
         </View>
 
         {profiles.map((profile) => (
@@ -86,31 +194,66 @@ export default function ScannersScreen() {
 
         <View style={{ backgroundColor: palette.surface, borderRadius: radii.lg, borderCurve: 'continuous', padding: 18, gap: 13, boxShadow: '0 6px 20px rgba(20,33,43,0.06)' }}>
           <Text selectable style={{ color: palette.text, fontSize: 19, fontWeight: '800' }}>Add scanner</Text>
-          {[['Manufacturer', manufacturer, setManufacturer, 'Siemens Healthineers'], ['Model', model, setModel, 'MAGNETOM Vida'], ['Nickname', nickname, setNickname, 'Southlake 3T']].map(([label, value, setter, placeholder]) => (
-            <View key={label as string} style={{ gap: 6 }}>
-              <Text selectable style={{ color: palette.muted, fontSize: 12, fontWeight: '700' }}>{label as string}</Text>
-              <TextInput
-                value={value as string}
-                onChangeText={setter as (text: string) => void}
-                placeholder={placeholder as string}
-                placeholderTextColor={palette.muted}
-                returnKeyType="done"
-                onSubmitEditing={Keyboard.dismiss}
-                inputAccessoryViewID={SCANNER_FORM_ACCESSORY_ID}
-                style={{ backgroundColor: palette.bg, height: 48, borderRadius: radii.md, paddingHorizontal: 13, color: palette.text, fontSize: 15 }}
-              />
-            </View>
-          ))}
+
+          <Dropdown
+            label="Manufacturer"
+            value={manufacturer}
+            placeholder="Select manufacturer"
+            open={openMenu === 'manufacturer'}
+            onToggle={() => setOpenMenu(openMenu === 'manufacturer' ? null : 'manufacturer')}
+            options={manufacturers}
+            onSelect={(value) => {
+              setManufacturer(value);
+              setModel('');
+              setStrength('');
+              setOpenMenu(null);
+            }}
+          />
+
+          <Dropdown
+            label="Model"
+            value={model}
+            placeholder={manufacturer ? 'Select model' : 'Select manufacturer first'}
+            open={openMenu === 'model'}
+            onToggle={() => setOpenMenu(openMenu === 'model' ? null : 'model')}
+            options={models}
+            disabled={!manufacturer}
+            onSelect={(value) => {
+              setModel(value);
+              setStrength('');
+              setOpenMenu(null);
+            }}
+          />
+
+          <Dropdown
+            label="Field strength"
+            value={strength}
+            placeholder={model ? 'Select field strength' : 'Select model first'}
+            open={openMenu === 'strength'}
+            onToggle={() => setOpenMenu(openMenu === 'strength' ? null : 'strength')}
+            options={strengths}
+            disabled={!model}
+            onSelect={(value) => {
+              setStrength(value);
+              setOpenMenu(null);
+            }}
+          />
+
           <View style={{ gap: 6 }}>
-            <Text selectable style={{ color: palette.muted, fontSize: 12, fontWeight: '700' }}>Field strength (T)</Text>
+            <Text selectable style={{ color: palette.muted, fontSize: 12, fontWeight: '700' }}>Nickname (optional)</Text>
             <TextInput
-              value={strength}
-              onChangeText={setStrength}
-              keyboardType="decimal-pad"
+              value={nickname}
+              onChangeText={setNickname}
+              placeholder="Southlake 3T"
+              placeholderTextColor={palette.muted}
+              returnKeyType="done"
+              onFocus={() => setOpenMenu(null)}
+              onSubmitEditing={Keyboard.dismiss}
               inputAccessoryViewID={SCANNER_FORM_ACCESSORY_ID}
               style={{ backgroundColor: palette.bg, height: 48, borderRadius: radii.md, paddingHorizontal: 13, color: palette.text, fontSize: 15 }}
             />
           </View>
+
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <View style={{ flex: 1, gap: 2 }}>
               <Text selectable style={{ color: palette.text, fontSize: 15, fontWeight: '700' }}>Default scanner</Text>
@@ -118,7 +261,8 @@ export default function ScannersScreen() {
             </View>
             <Switch value={isDefault} onValueChange={setIsDefault} />
           </View>
-          <Pressable disabled={busy} onPress={save} style={{ backgroundColor: palette.brand, minHeight: 52, borderRadius: radii.md, alignItems: 'center', justifyContent: 'center', opacity: busy ? 0.6 : 1 }}>
+
+          <Pressable disabled={busy || !manufacturer || !model || !strength} onPress={save} style={{ backgroundColor: palette.brand, minHeight: 52, borderRadius: radii.md, alignItems: 'center', justifyContent: 'center', opacity: busy || !manufacturer || !model || !strength ? 0.45 : 1 }}>
             {busy ? <ActivityIndicator color={palette.white} /> : <Text style={{ color: palette.white, fontSize: 16, fontWeight: '900' }}>Save scanner</Text>}
           </Pressable>
           {message ? <Text selectable style={{ color: message === 'Scanner saved.' ? palette.safe : palette.danger, fontSize: 13 }}>{message}</Text> : null}
