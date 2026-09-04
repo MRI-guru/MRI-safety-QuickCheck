@@ -1,4 +1,5 @@
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
@@ -19,9 +20,25 @@ function Row({ icon, title, detail }: { icon: string; title: string; detail: str
 }
 
 export default function SettingsScreen() {
+  const [signingOut, setSigningOut] = useState(false);
+  const [message, setMessage] = useState('');
+
   async function signOut() {
-    await supabase.auth.signOut();
-    router.replace('/sign-in');
+    if (signingOut) return;
+    setSigningOut(true);
+    setMessage('');
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        setMessage('Unable to sign out. Check your connection and try again.');
+        return;
+      }
+      router.replace('/sign-in');
+    } catch {
+      setMessage('Unable to sign out. Check your connection and try again.');
+    } finally {
+      setSigningOut(false);
+    }
   }
 
   return (
@@ -44,9 +61,10 @@ export default function SettingsScreen() {
         <Text selectable style={{ color: palette.muted, fontSize: 13, lineHeight: 19 }}>This application is decision support. MRI personnel remain responsible for confirming the exact implant, current manufacturer MRI labeling, patient-specific conditions, scanner settings, and facility policy before scanning.</Text>
       </View>
 
-      <Pressable onPress={signOut} style={{ minHeight: 50, borderRadius: radii.md, borderWidth: 1, borderColor: palette.danger, alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ color: palette.danger, fontSize: 15, fontWeight: '900' }}>Sign out</Text>
+      <Pressable disabled={signingOut} onPress={signOut} style={{ minHeight: 50, opacity: signingOut ? 0.55 : 1, borderRadius: radii.md, borderWidth: 1, borderColor: palette.danger, alignItems: 'center', justifyContent: 'center' }}>
+        {signingOut ? <ActivityIndicator color={palette.danger} /> : <Text style={{ color: palette.danger, fontSize: 15, fontWeight: '900' }}>Sign out</Text>}
       </Pressable>
+      {message ? <Text selectable accessibilityLiveRegion="polite" style={{ color: palette.danger, fontSize: 13, lineHeight: 18 }}>{message}</Text> : null}
     </ScrollView>
   );
 }
