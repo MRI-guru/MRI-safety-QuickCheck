@@ -39,7 +39,7 @@ export default function HistoryScreen() {
   return (
     <ScrollView contentInsetAdjustmentBehavior="automatic" refreshControl={<RefreshControl refreshing={refreshing} onRefresh={load} />} contentContainerStyle={{ padding: 16, paddingBottom: 48, gap: 14 }}>
       <View style={{ gap: 5 }}>
-        <Text selectable style={{ color: palette.text, fontSize: 28, fontWeight: '850', letterSpacing: -0.8 }}>QuickCheck history</Text>
+        <Text selectable style={{ color: palette.text, fontSize: 28, fontWeight: '900', letterSpacing: -0.8 }}>QuickCheck history</Text>
         <Text selectable style={{ color: palette.muted, fontSize: 14, lineHeight: 20 }}>A patient-safe audit trail of the scanner, device system, decision, and manufacturer conditions used at the time of each check.</Text>
       </View>
 
@@ -59,10 +59,10 @@ export default function HistoryScreen() {
         return (
           <View key={row.id} style={{ backgroundColor: palette.surface, borderRadius: radii.lg, borderCurve: 'continuous', padding: 16, gap: 10, borderLeftWidth: 5, borderLeftColor: colors.foreground }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 12 }}>
-              <Text selectable style={{ flex: 1, color: colors.foreground, fontSize: 14, fontWeight: '850' }}>{display}</Text>
+              <Text selectable style={{ flex: 1, color: colors.foreground, fontSize: 14, fontWeight: '900' }}>{display}</Text>
               <Text selectable style={{ color: palette.muted, fontSize: 12 }}>{new Date(row.created_at).toLocaleDateString()}</Text>
             </View>
-            <Text selectable style={{ color: palette.text, fontSize: 15, fontWeight: '750' }}>{row.scanner_strength_t}T · {row.scan_region || 'Region not recorded'}</Text>
+            <Text selectable style={{ color: palette.text, fontSize: 15, fontWeight: '700' }}>{row.scanner_strength_t}T · {row.scan_region || 'Region not recorded'}</Text>
             {row.result?.device?.manufacturer || row.result?.device?.model ? (
               <Text selectable style={{ color: palette.muted, fontSize: 13 }}>{[row.result?.device?.manufacturer, row.result?.device?.model].filter(Boolean).join(' · ')}</Text>
             ) : null}
