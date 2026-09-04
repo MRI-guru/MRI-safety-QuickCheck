@@ -5,277 +5,41 @@ import * as Haptics from 'expo-haptics';
 import { supabase } from '@/lib/supabase';
 import { palette, radii } from '@/lib/theme';
 
-type Profile = {
-  id: string;
-  manufacturer: string;
-  model: string;
-  field_strength_t: number;
-  nickname?: string | null;
-  is_default: boolean;
-};
+type Profile = { id:string; manufacturer:string; model:string; field_strength_t:number; nickname?:string|null; is_default:boolean };
+type ScannerOption = { id:string; manufacturer:string; model:string; field_strength_t:number };
+type OpenMenu = 'manufacturer'|'model'|'strength'|null;
+const SCANNER_FORM_ACCESSORY_ID='scanner-form-keyboard-accessory';
 
-type ScannerOption = {
-  id: string;
-  manufacturer: string;
-  model: string;
-  field_strength_t: number;
-};
-
-type OpenMenu = 'manufacturer' | 'model' | 'strength' | null;
-
-const SCANNER_FORM_ACCESSORY_ID = 'scanner-form-keyboard-accessory';
-
-function Dropdown({
-  label,
-  value,
-  placeholder,
-  open,
-  onToggle,
-  options,
-  onSelect,
-  disabled = false
-}: {
-  label: string;
-  value: string;
-  placeholder: string;
-  open: boolean;
-  onToggle: () => void;
-  options: string[];
-  onSelect: (value: string) => void;
-  disabled?: boolean;
-}) {
-  return (
-    <View style={{ gap: 6 }}>
-      <Text selectable style={{ color: palette.muted, fontSize: 12, fontWeight: '700' }}>{label}</Text>
-      <Pressable
-        disabled={disabled}
-        onPress={() => { Keyboard.dismiss(); onToggle(); }}
-        style={{
-          minHeight: 48,
-          borderRadius: radii.md,
-          paddingHorizontal: 13,
-          backgroundColor: palette.bg,
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          opacity: disabled ? 0.45 : 1
-        }}
-      >
-        <Text style={{ color: value ? palette.text : palette.muted, fontSize: 15, flex: 1 }}>{value || placeholder}</Text>
-        <Text style={{ color: palette.brand, fontSize: 16, fontWeight: '800' }}>{open ? '▲' : '▼'}</Text>
-      </Pressable>
-      {open ? (
-        <View style={{ borderWidth: 1, borderColor: palette.line, borderRadius: radii.md, overflow: 'hidden', backgroundColor: palette.surface }}>
-          {options.length ? options.map((option, index) => (
-            <Pressable
-              key={option}
-              onPress={() => onSelect(option)}
-              style={{
-                paddingHorizontal: 14,
-                paddingVertical: 13,
-                backgroundColor: option === value ? palette.brandSoft : palette.surface,
-                borderTopWidth: index === 0 ? 0 : 1,
-                borderTopColor: palette.line
-              }}
-            >
-              <Text style={{ color: option === value ? palette.brand : palette.text, fontSize: 15, fontWeight: option === value ? '800' : '600' }}>{option}</Text>
-            </Pressable>
-          )) : (
-            <Text style={{ padding: 14, color: palette.muted, fontSize: 13 }}>No choices available.</Text>
-          )}
-        </View>
-      ) : null}
-    </View>
-  );
+function Dropdown({label,value,placeholder,open,onToggle,options,onSelect,disabled=false}:{label:string;value:string;placeholder:string;open:boolean;onToggle:()=>void;options:string[];onSelect:(value:string)=>void;disabled?:boolean}){
+ return <View style={{gap:6}}>
+  <Text selectable style={{color:palette.muted,fontSize:12,fontWeight:'700'}}>{label}</Text>
+  <Pressable disabled={disabled} onPress={()=>{Keyboard.dismiss();onToggle()}} style={{minHeight:48,borderRadius:radii.md,paddingHorizontal:13,backgroundColor:palette.bg,flexDirection:'row',alignItems:'center',justifyContent:'space-between',opacity:disabled?.45:1}}>
+   <Text style={{color:value?palette.text:palette.muted,fontSize:15,flex:1}}>{value||placeholder}</Text><Text style={{color:palette.brand,fontSize:16,fontWeight:'800'}}>{open?'▲':'▼'}</Text>
+  </Pressable>
+  {open?<View style={{borderWidth:1,borderColor:palette.line,borderRadius:radii.md,overflow:'hidden',backgroundColor:palette.surface,maxHeight:260}}>
+   {options.length?<ScrollView nestedScrollEnabled keyboardShouldPersistTaps="always" showsVerticalScrollIndicator contentContainerStyle={{flexGrow:0}}>{options.map((option,index)=><Pressable key={option} onPress={()=>onSelect(option)} style={{paddingHorizontal:14,paddingVertical:13,backgroundColor:option===value?palette.brandSoft:palette.surface,borderTopWidth:index===0?0:1,borderTopColor:palette.line}}><Text style={{color:option===value?palette.brand:palette.text,fontSize:15,fontWeight:option===value?'800':'600'}}>{option}</Text></Pressable>)}</ScrollView>:<Text style={{padding:14,color:palette.muted,fontSize:13}}>No choices available.</Text>}
+  </View>:null}
+ </View>
 }
 
-export default function ScannersScreen() {
-  const [profiles, setProfiles] = useState<Profile[]>([]);
-  const [catalog, setCatalog] = useState<ScannerOption[]>([]);
-  const [manufacturer, setManufacturer] = useState('');
-  const [model, setModel] = useState('');
-  const [strength, setStrength] = useState('');
-  const [nickname, setNickname] = useState('');
-  const [isDefault, setIsDefault] = useState(true);
-  const [openMenu, setOpenMenu] = useState<OpenMenu>(null);
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState('');
-
-  async function load() {
-    const [{ data: profileData, error: profileError }, { data: scannerData, error: scannerError }] = await Promise.all([
-      supabase.rpc('quickcheck_list_scanner_profiles'),
-      supabase.rpc('quickcheck_scanner_options')
-    ]);
-    if (profileError) setMessage(profileError.message);
-    else setProfiles((profileData ?? []) as Profile[]);
-    if (scannerError) setMessage(scannerError.message);
-    else setCatalog((scannerData ?? []) as ScannerOption[]);
-  }
-
-  useEffect(() => { load(); }, []);
-
-  const manufacturers = useMemo(
-    () => Array.from(new Set(catalog.map((row) => row.manufacturer).filter(Boolean))).sort(),
-    [catalog]
-  );
-
-  const models = useMemo(
-    () => Array.from(new Set(catalog.filter((row) => row.manufacturer === manufacturer).map((row) => row.model).filter(Boolean))).sort(),
-    [catalog, manufacturer]
-  );
-
-  const strengths = useMemo(
-    () => Array.from(new Set(
-      catalog
-        .filter((row) => row.manufacturer === manufacturer && row.model === model)
-        .map((row) => Number(row.field_strength_t))
-        .filter((value) => Number.isFinite(value))
-    )).sort((a, b) => a - b).map((value) => `${value}T`),
-    [catalog, manufacturer, model]
-  );
-
-  async function save() {
-    Keyboard.dismiss();
-    setOpenMenu(null);
-    const numericStrength = Number(strength.replace('T', ''));
-    if (!manufacturer || !model || !numericStrength) {
-      setMessage('Select manufacturer, model, and field strength.');
-      return;
-    }
-    setBusy(true);
-    setMessage('');
-    const { error } = await supabase.rpc('quickcheck_save_scanner_profile', {
-      p_id: null,
-      p_manufacturer: manufacturer,
-      p_model: model,
-      p_field_strength_t: numericStrength,
-      p_nickname: nickname.trim() || null,
-      p_is_default: isDefault
-    });
-    setBusy(false);
-    if (error) return setMessage(error.message);
-    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setManufacturer('');
-    setModel('');
-    setStrength('');
-    setNickname('');
-    setMessage('Scanner saved.');
-    load();
-  }
-
-  return (
-    <>
-      <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="interactive"
-        onScrollBeginDrag={() => { Keyboard.dismiss(); setOpenMenu(null); }}
-        contentContainerStyle={{ padding: 16, paddingBottom: 48, gap: 18 }}
-      >
-        <View style={{ gap: 5 }}>
-          <Text selectable style={{ color: palette.text, fontSize: 28, fontWeight: '900', letterSpacing: -0.8 }}>Your MRI scanners</Text>
-          <Text selectable style={{ color: palette.muted, fontSize: 14, lineHeight: 20 }}>Save scanners used at your facility. Choose the manufacturer, model, and field strength from the verified scanner catalog.</Text>
-        </View>
-
-        {profiles.map((profile) => (
-          <View key={profile.id} style={{ backgroundColor: palette.surface, borderRadius: radii.lg, borderCurve: 'continuous', padding: 17, gap: 10, borderWidth: profile.is_default ? 1.5 : 1, borderColor: profile.is_default ? palette.brand : palette.line }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: palette.brandSoft, alignItems: 'center', justifyContent: 'center' }}>
-                <Image source="sf:wave.3.right.circle.fill" style={{ width: 25, height: 25 }} tintColor={palette.brand} />
-              </View>
-              <View style={{ flex: 1, gap: 2 }}>
-                <Text selectable style={{ color: palette.text, fontSize: 17, fontWeight: '800' }}>{profile.nickname || `${profile.manufacturer} ${profile.model}`}</Text>
-                <Text selectable style={{ color: palette.muted, fontSize: 13 }}>{profile.manufacturer} {profile.model} · {profile.field_strength_t}T</Text>
-              </View>
-              {profile.is_default ? <Text style={{ color: palette.brand, fontSize: 11, fontWeight: '900' }}>DEFAULT</Text> : null}
-            </View>
-          </View>
-        ))}
-
-        <View style={{ backgroundColor: palette.surface, borderRadius: radii.lg, borderCurve: 'continuous', padding: 18, gap: 13, boxShadow: '0 6px 20px rgba(20,33,43,0.06)' }}>
-          <Text selectable style={{ color: palette.text, fontSize: 19, fontWeight: '800' }}>Add scanner</Text>
-
-          <Dropdown
-            label="Manufacturer"
-            value={manufacturer}
-            placeholder="Select manufacturer"
-            open={openMenu === 'manufacturer'}
-            onToggle={() => setOpenMenu(openMenu === 'manufacturer' ? null : 'manufacturer')}
-            options={manufacturers}
-            onSelect={(value) => {
-              setManufacturer(value);
-              setModel('');
-              setStrength('');
-              setOpenMenu(null);
-            }}
-          />
-
-          <Dropdown
-            label="Model"
-            value={model}
-            placeholder={manufacturer ? 'Select model' : 'Select manufacturer first'}
-            open={openMenu === 'model'}
-            onToggle={() => setOpenMenu(openMenu === 'model' ? null : 'model')}
-            options={models}
-            disabled={!manufacturer}
-            onSelect={(value) => {
-              setModel(value);
-              setStrength('');
-              setOpenMenu(null);
-            }}
-          />
-
-          <Dropdown
-            label="Field strength"
-            value={strength}
-            placeholder={model ? 'Select field strength' : 'Select model first'}
-            open={openMenu === 'strength'}
-            onToggle={() => setOpenMenu(openMenu === 'strength' ? null : 'strength')}
-            options={strengths}
-            disabled={!model}
-            onSelect={(value) => {
-              setStrength(value);
-              setOpenMenu(null);
-            }}
-          />
-
-          <View style={{ gap: 6 }}>
-            <Text selectable style={{ color: palette.muted, fontSize: 12, fontWeight: '700' }}>Nickname (optional)</Text>
-            <TextInput
-              value={nickname}
-              onChangeText={setNickname}
-              placeholder="Southlake 3T"
-              placeholderTextColor={palette.muted}
-              returnKeyType="done"
-              onFocus={() => setOpenMenu(null)}
-              onSubmitEditing={Keyboard.dismiss}
-              inputAccessoryViewID={SCANNER_FORM_ACCESSORY_ID}
-              style={{ backgroundColor: palette.bg, height: 48, borderRadius: radii.md, paddingHorizontal: 13, color: palette.text, fontSize: 15 }}
-            />
-          </View>
-
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <View style={{ flex: 1, gap: 2 }}>
-              <Text selectable style={{ color: palette.text, fontSize: 15, fontWeight: '700' }}>Default scanner</Text>
-              <Text selectable style={{ color: palette.muted, fontSize: 12 }}>Use first when starting a QuickCheck.</Text>
-            </View>
-            <Switch value={isDefault} onValueChange={setIsDefault} />
-          </View>
-
-          <Pressable disabled={busy || !manufacturer || !model || !strength} onPress={save} style={{ backgroundColor: palette.brand, minHeight: 52, borderRadius: radii.md, alignItems: 'center', justifyContent: 'center', opacity: busy || !manufacturer || !model || !strength ? 0.45 : 1 }}>
-            {busy ? <ActivityIndicator color={palette.white} /> : <Text style={{ color: palette.white, fontSize: 16, fontWeight: '900' }}>Save scanner</Text>}
-          </Pressable>
-          {message ? <Text selectable style={{ color: message === 'Scanner saved.' ? palette.safe : palette.danger, fontSize: 13 }}>{message}</Text> : null}
-        </View>
-      </ScrollView>
-
-      <InputAccessoryView nativeID={SCANNER_FORM_ACCESSORY_ID}>
-        <View style={{ minHeight: 44, paddingHorizontal: 12, alignItems: 'flex-end', justifyContent: 'center', backgroundColor: palette.surface, borderTopWidth: 1, borderTopColor: palette.line }}>
-          <Pressable onPress={Keyboard.dismiss} hitSlop={10} style={{ paddingHorizontal: 12, paddingVertical: 8 }}>
-            <Text style={{ color: palette.brand, fontSize: 16, fontWeight: '800' }}>Done</Text>
-          </Pressable>
-        </View>
-      </InputAccessoryView>
-    </>
-  );
+export default function ScannersScreen(){
+ const[profiles,setProfiles]=useState<Profile[]>([]),[catalog,setCatalog]=useState<ScannerOption[]>([]),[manufacturer,setManufacturer]=useState(''),[model,setModel]=useState(''),[strength,setStrength]=useState(''),[nickname,setNickname]=useState(''),[isDefault,setIsDefault]=useState(true),[openMenu,setOpenMenu]=useState<OpenMenu>(null),[busy,setBusy]=useState(false),[message,setMessage]=useState('');
+ async function load(){const[{data:profileData,error:profileError},{data:scannerData,error:scannerError}]=await Promise.all([supabase.rpc('quickcheck_list_scanner_profiles'),supabase.rpc('quickcheck_scanner_options')]);if(profileError)setMessage(profileError.message);else setProfiles((profileData??[])as Profile[]);if(scannerError)setMessage(scannerError.message);else setCatalog((scannerData??[])as ScannerOption[])}
+ useEffect(()=>{load()},[]);
+ const manufacturers=useMemo(()=>Array.from(new Set(catalog.map(r=>r.manufacturer).filter(Boolean))).sort(),[catalog]);
+ const models=useMemo(()=>Array.from(new Set(catalog.filter(r=>r.manufacturer===manufacturer).map(r=>r.model).filter(Boolean))).sort(),[catalog,manufacturer]);
+ const strengths=useMemo(()=>Array.from(new Set(catalog.filter(r=>r.manufacturer===manufacturer&&r.model===model).map(r=>Number(r.field_strength_t)).filter(v=>Number.isFinite(v)))).sort((a,b)=>a-b).map(v=>`${v}T`),[catalog,manufacturer,model]);
+ async function save(){Keyboard.dismiss();setOpenMenu(null);const numericStrength=Number(strength.replace('T',''));if(!manufacturer||!model||!numericStrength){setMessage('Select manufacturer, model, and field strength.');return}setBusy(true);setMessage('');const{error}=await supabase.rpc('quickcheck_save_scanner_profile',{p_id:null,p_manufacturer:manufacturer,p_model:model,p_field_strength_t:numericStrength,p_nickname:nickname.trim()||null,p_is_default:isDefault});setBusy(false);if(error)return setMessage(error.message);await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);setManufacturer('');setModel('');setStrength('');setNickname('');setMessage('Scanner saved.');load()}
+ return <><ScrollView contentInsetAdjustmentBehavior="automatic" keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive" contentContainerStyle={{padding:16,paddingBottom:48,gap:18}}>
+  <View style={{gap:5}}><Text selectable style={{color:palette.text,fontSize:28,fontWeight:'900',letterSpacing:-.8}}>Your MRI scanners</Text><Text selectable style={{color:palette.muted,fontSize:14,lineHeight:20}}>Save scanners used at your facility. Choose the manufacturer, model, and field strength from the verified scanner catalog.</Text></View>
+  {profiles.map(profile=><View key={profile.id} style={{backgroundColor:palette.surface,borderRadius:radii.lg,borderCurve:'continuous',padding:17,gap:10,borderWidth:profile.is_default?1.5:1,borderColor:profile.is_default?palette.brand:palette.line}}><View style={{flexDirection:'row',alignItems:'center',gap:12}}><View style={{width:44,height:44,borderRadius:14,backgroundColor:palette.brandSoft,alignItems:'center',justifyContent:'center'}}><Image source="sf:wave.3.right.circle.fill" style={{width:25,height:25}} tintColor={palette.brand}/></View><View style={{flex:1,gap:2}}><Text selectable style={{color:palette.text,fontSize:17,fontWeight:'800'}}>{profile.nickname||`${profile.manufacturer} ${profile.model}`}</Text><Text selectable style={{color:palette.muted,fontSize:13}}>{profile.manufacturer} {profile.model} · {profile.field_strength_t}T</Text></View>{profile.is_default?<Text style={{color:palette.brand,fontSize:11,fontWeight:'900'}}>DEFAULT</Text>:null}</View></View>)}
+  <View style={{backgroundColor:palette.surface,borderRadius:radii.lg,borderCurve:'continuous',padding:18,gap:13,boxShadow:'0 6px 20px rgba(20,33,43,0.06)'}}><Text selectable style={{color:palette.text,fontSize:19,fontWeight:'800'}}>Add scanner</Text>
+   <Dropdown label="Manufacturer" value={manufacturer} placeholder="Select manufacturer" open={openMenu==='manufacturer'} onToggle={()=>setOpenMenu(openMenu==='manufacturer'?null:'manufacturer')} options={manufacturers} onSelect={v=>{setManufacturer(v);setModel('');setStrength('');setOpenMenu(null)}}/>
+   <Dropdown label="Model" value={model} placeholder={manufacturer?'Select model':'Select manufacturer first'} open={openMenu==='model'} onToggle={()=>setOpenMenu(openMenu==='model'?null:'model')} options={models} disabled={!manufacturer} onSelect={v=>{setModel(v);setStrength('');setOpenMenu(null)}}/>
+   <Dropdown label="Field strength" value={strength} placeholder={model?'Select field strength':'Select model first'} open={openMenu==='strength'} onToggle={()=>setOpenMenu(openMenu==='strength'?null:'strength')} options={strengths} disabled={!model} onSelect={v=>{setStrength(v);setOpenMenu(null)}}/>
+   <View style={{gap:6}}><Text selectable style={{color:palette.muted,fontSize:12,fontWeight:'700'}}>Nickname (optional)</Text><TextInput value={nickname} onChangeText={setNickname} placeholder="Southlake 3T" placeholderTextColor={palette.muted} returnKeyType="done" onFocus={()=>setOpenMenu(null)} onSubmitEditing={Keyboard.dismiss} inputAccessoryViewID={SCANNER_FORM_ACCESSORY_ID} style={{backgroundColor:palette.bg,height:48,borderRadius:radii.md,paddingHorizontal:13,color:palette.text,fontSize:15}}/></View>
+   <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between'}}><View style={{flex:1,gap:2}}><Text selectable style={{color:palette.text,fontSize:15,fontWeight:'700'}}>Default scanner</Text><Text selectable style={{color:palette.muted,fontSize:12}}>Use first when starting a QuickCheck.</Text></View><Switch value={isDefault} onValueChange={setIsDefault}/></View>
+   <Pressable disabled={busy||!manufacturer||!model||!strength} onPress={save} style={{backgroundColor:palette.brand,minHeight:52,borderRadius:radii.md,alignItems:'center',justifyContent:'center',opacity:busy||!manufacturer||!model||!strength?.45:1}}>{busy?<ActivityIndicator color={palette.white}/>:<Text style={{color:palette.white,fontSize:16,fontWeight:'900'}}>Save scanner</Text>}</Pressable>{message?<Text selectable style={{color:message==='Scanner saved.'?palette.safe:palette.danger,fontSize:13}}>{message}</Text>:null}
+  </View>
+ </ScrollView><InputAccessoryView nativeID={SCANNER_FORM_ACCESSORY_ID}><View style={{minHeight:44,paddingHorizontal:12,alignItems:'flex-end',justifyContent:'center',backgroundColor:palette.surface,borderTopWidth:1,borderTopColor:palette.line}}><Pressable onPress={Keyboard.dismiss} hitSlop={10} style={{paddingHorizontal:12,paddingVertical:8}}><Text style={{color:palette.brand,fontSize:16,fontWeight:'800'}}>Done</Text></Pressable></View></InputAccessoryView></>
 }
