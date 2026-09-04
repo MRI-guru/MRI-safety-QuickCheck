@@ -154,7 +154,7 @@ export default function QuickCheckScreen() {
       <TextInput value={serialNumber} onChangeText={setSerialNumber} autoCapitalize="characters" placeholder="Generator serial number (when applicable)" placeholderTextColor={palette.muted} style={{ backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, borderRadius: radii.md, paddingHorizontal: 14, height: 50, color: palette.text, fontSize: 16 }} />
 
       <Pressable disabled={!scanner || !device || busy} onPress={runCheck} style={{ opacity: !scanner || !device || busy ? 0.45 : 1, backgroundColor: palette.brand, minHeight: 58, borderRadius: radii.md, borderCurve: 'continuous', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 22px rgba(10,85,122,0.22)' }}>
-        {busy ? <ActivityIndicator color={palette.white} /> : <Text style={{ color: palette.white, fontSize: 17, fontWeight: '850' }}>Run MRI QuickCheck</Text>}
+        {busy ? <ActivityIndicator color={palette.white} /> : <Text style={{ color: palette.white, fontSize: 17, fontWeight: '900' }}>Run MRI QuickCheck</Text>}
       </Pressable>
 
       {result ? (
