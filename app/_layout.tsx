@@ -12,22 +12,31 @@ export default function RootLayout() {
   const segments = useSegments();
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
+    let mounted = true;
+
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (!mounted) return;
+      setSession(error ? null : data.session);
       setLoading(false);
     });
+
     const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (!mounted) return;
       setSession(nextSession);
       setLoading(false);
     });
-    return () => listener.subscription.unsubscribe();
+
+    return () => {
+      mounted = false;
+      listener.subscription.unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
     if (loading) return;
     const inSignIn = segments[0] === 'sign-in';
     if (!session && !inSignIn) router.replace('/sign-in');
-    if (session && inSignIn) router.replace('/');
+    else if (session && inSignIn) router.replace('/');
   }, [loading, session, segments]);
 
   if (loading) {
