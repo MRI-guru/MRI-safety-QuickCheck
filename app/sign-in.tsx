@@ -12,12 +12,30 @@ export default function SignInScreen() {
   const [message, setMessage] = useState('');
 
   async function signIn() {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail || !password) {
+      setMessage('Enter your email and password.');
+      return;
+    }
+    if (!normalizedEmail.includes('@')) {
+      setMessage('Enter a valid email address.');
+      return;
+    }
+
     setBusy(true);
     setMessage('');
-    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
-    setBusy(false);
-    if (error) return setMessage(error.message);
-    router.replace('/');
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email: normalizedEmail, password });
+      if (error) {
+        setMessage('Sign-in failed. Check your email and password, then try again.');
+        return;
+      }
+      router.replace('/');
+    } catch {
+      setMessage('Unable to reach the secure sign-in service. Check your connection and try again.');
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -35,12 +53,12 @@ export default function SignInScreen() {
       ) : null}
 
       <View style={{ backgroundColor: palette.surface, borderRadius: radii.lg, borderCurve: 'continuous', padding: 18, gap: 13, boxShadow: '0 8px 26px rgba(20,33,43,0.07)' }}>
-        <TextInput value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" autoComplete="email" placeholder="Email" placeholderTextColor={palette.muted} style={{ backgroundColor: palette.bg, borderRadius: radii.md, paddingHorizontal: 14, height: 50, color: palette.text, fontSize: 16 }} />
-        <TextInput value={password} onChangeText={setPassword} secureTextEntry autoComplete="current-password" placeholder="Password" placeholderTextColor={palette.muted} style={{ backgroundColor: palette.bg, borderRadius: radii.md, paddingHorizontal: 14, height: 50, color: palette.text, fontSize: 16 }} />
+        <TextInput value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" autoComplete="email" textContentType="username" returnKeyType="next" placeholder="Email" placeholderTextColor={palette.muted} style={{ backgroundColor: palette.bg, borderRadius: radii.md, paddingHorizontal: 14, height: 50, color: palette.text, fontSize: 16 }} />
+        <TextInput value={password} onChangeText={setPassword} secureTextEntry autoComplete="current-password" textContentType="password" returnKeyType="go" onSubmitEditing={signIn} placeholder="Password" placeholderTextColor={palette.muted} style={{ backgroundColor: palette.bg, borderRadius: radii.md, paddingHorizontal: 14, height: 50, color: palette.text, fontSize: 16 }} />
         <Pressable disabled={busy || !isSupabaseConfigured} onPress={signIn} style={{ minHeight: 52, opacity: busy || !isSupabaseConfigured ? 0.45 : 1, backgroundColor: palette.brand, borderRadius: radii.md, alignItems: 'center', justifyContent: 'center' }}>
           {busy ? <ActivityIndicator color={palette.white} /> : <Text style={{ color: palette.white, fontSize: 16, fontWeight: '900' }}>Sign in</Text>}
         </Pressable>
-        {message ? <Text selectable style={{ color: palette.danger, fontSize: 13 }}>{message}</Text> : null}
+        {message ? <Text selectable accessibilityLiveRegion="polite" style={{ color: palette.danger, fontSize: 13, lineHeight: 18 }}>{message}</Text> : null}
       </View>
 
       <Text selectable style={{ color: palette.muted, textAlign: 'center', fontSize: 12, lineHeight: 17 }}>MRI Safety QuickCheck is intended for trained MRI personnel and does not replace current manufacturer labeling or institutional MRI safety review.</Text>
