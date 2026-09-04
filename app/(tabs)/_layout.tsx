@@ -3,7 +3,7 @@ import { Image } from 'expo-image';
 import { palette } from '@/lib/theme';
 
 function TabIcon({ name, color }: { name: string; color: string }) {
-  return <Image source={`sf:${name}`} style={{ width: 23, height: 23 }} tintColor={color} />;
+  return <Image source={`sf:${name}` as any} style={{ width: 23, height: 23 }} tintColor={color} />;
 }
 
 export default function TabsLayout() {
