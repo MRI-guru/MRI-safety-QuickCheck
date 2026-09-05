@@ -60,6 +60,14 @@ export default function SettingsScreen() {
     await Linking.openURL(`mailto:dballas88@gmail.com?subject=${subject}&body=${body}`);
   }
 
+  async function reportMriDataIssue() {
+    const subject = encodeURIComponent(`MRI Safety QuickCheck MRI Data Issue v${appVersion} (${buildNumber})`);
+    const body = encodeURIComponent(
+      `App version: ${appVersion}\nBuild: ${buildNumber}\n\nManufacturer:\n\nDevice family/model:\n\nExact component/model numbers (if known):\n\nScanner field strength/model:\n\nResult shown in QuickCheck:\n\nWhy the result appears incorrect or incomplete:\n\nManufacturer MRI labeling/source link (if available):\n\nDo not include patient names, DOB, MRN, images, accession numbers, or other patient-identifying information.`
+    );
+    await Linking.openURL(`mailto:dballas88@gmail.com?subject=${subject}&body=${body}`);
+  }
+
   return (
     <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={{ padding: 16, paddingBottom: 48, gap: 18 }}>
       <View style={{ gap: 5 }}>
@@ -77,9 +85,11 @@ export default function SettingsScreen() {
 
       <View style={{ backgroundColor: palette.surface, borderRadius: radii.lg, borderCurve: 'continuous', padding: 18, gap: 18 }}>
         <Text selectable style={{ color: palette.text, fontSize: 17, fontWeight: '900' }}>Beta support</Text>
-        <ActionRow icon="envelope.fill" title="Send beta feedback" detail="Report a bug, incorrect result, missing implant, or workflow issue. App version and build number are added automatically." onPress={sendFeedback} />
+        <ActionRow icon="exclamationmark.triangle.fill" title="Report MRI data issue" detail="Use this for incorrect MRI labeling, compatibility results, missing devices, model/component errors, or scanner-condition problems." onPress={reportMriDataIssue} />
         <View style={{ height: 1, backgroundColor: palette.line }} />
-        <Row icon="hand.raised.fill" title="Privacy" detail="Do not enter patient names, dates of birth, medical record numbers, images, or other patient-identifying information into beta feedback. Account authentication is handled through Supabase." />
+        <ActionRow icon="envelope.fill" title="Send general beta feedback" detail="Use this for app bugs, crashes, navigation, sign-in, or workflow issues. App version and build number are added automatically." onPress={sendFeedback} />
+        <View style={{ height: 1, backgroundColor: palette.line }} />
+        <Row icon="hand.raised.fill" title="Privacy" detail="Do not enter patient names, dates of birth, medical record numbers, accession numbers, images, or other patient-identifying information into beta feedback. Account authentication is handled through Supabase." />
         <View style={{ height: 1, backgroundColor: palette.line }} />
         <Row icon="cross.case.fill" title="Clinical use" detail="Beta testing does not replace manufacturer MRI labeling, institutional policy, or qualified MRI personnel review. Unknown or incomplete implant configurations must remain unresolved until verified." />
       </View>
