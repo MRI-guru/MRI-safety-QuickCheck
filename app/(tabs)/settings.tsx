@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
@@ -16,6 +16,14 @@ function Row({ icon, title, detail }: { icon: string; title: string; detail: str
         <Text selectable style={{ color: palette.muted, fontSize: 12, lineHeight: 17 }}>{detail}</Text>
       </View>
     </View>
+  );
+}
+
+function ActionRow({ icon, title, detail, onPress }: { icon: string; title: string; detail: string; onPress: () => void }) {
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button" style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}>
+      <Row icon={icon} title={title} detail={detail} />
+    </Pressable>
   );
 }
 
@@ -41,6 +49,12 @@ export default function SettingsScreen() {
     }
   }
 
+  async function sendFeedback() {
+    const subject = encodeURIComponent('MRI Safety QuickCheck Beta Feedback');
+    const body = encodeURIComponent('Build/version:\nDevice:\nWhat I was testing:\nWhat happened:\nWhat I expected:\n\nPlease do not include patient-identifying information.');
+    await Linking.openURL(`mailto:dballas88@gmail.com?subject=${subject}&body=${body}`);
+  }
+
   return (
     <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={{ padding: 16, paddingBottom: 48, gap: 18 }}>
       <View style={{ gap: 5 }}>
@@ -54,6 +68,15 @@ export default function SettingsScreen() {
         <Row icon="checkmark.seal.fill" title="Manufacturer-first evidence" detail="QuickCheck is designed to fail closed when exact current device labeling cannot be verified." />
         <View style={{ height: 1, backgroundColor: palette.line }} />
         <Row icon="lock.shield.fill" title="Protected account" detail="Supabase Auth sessions are stored in the iOS Keychain through Expo SecureStore." />
+      </View>
+
+      <View style={{ backgroundColor: palette.surface, borderRadius: radii.lg, borderCurve: 'continuous', padding: 18, gap: 18 }}>
+        <Text selectable style={{ color: palette.text, fontSize: 17, fontWeight: '900' }}>Beta support</Text>
+        <ActionRow icon="envelope.fill" title="Send beta feedback" detail="Report a bug, incorrect result, missing implant, or workflow issue. Do not include patient-identifying information." onPress={sendFeedback} />
+        <View style={{ height: 1, backgroundColor: palette.line }} />
+        <Row icon="hand.raised.fill" title="Privacy" detail="Do not enter patient names, dates of birth, medical record numbers, images, or other patient-identifying information into beta feedback. Account authentication is handled through Supabase." />
+        <View style={{ height: 1, backgroundColor: palette.line }} />
+        <Row icon="cross.case.fill" title="Clinical use" detail="Beta testing does not replace manufacturer MRI labeling, institutional policy, or qualified MRI personnel review. Unknown or incomplete implant configurations must remain unresolved until verified." />
       </View>
 
       <View style={{ backgroundColor: palette.unknownSoft, borderRadius: radii.lg, borderCurve: 'continuous', padding: 18, gap: 8 }}>
