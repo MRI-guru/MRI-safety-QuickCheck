@@ -6,6 +6,8 @@ import type { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { palette } from '@/lib/theme';
 
+const PUBLIC_AUTH_ROUTES = new Set(['sign-in', 'sign-up', 'forgot-password', 'reset-password']);
+
 export default function RootLayout() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
@@ -34,9 +36,11 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (loading) return;
-    const inSignIn = segments[0] === 'sign-in';
-    if (!session && !inSignIn) router.replace('/sign-in');
-    else if (session && inSignIn) router.replace('/');
+    const route = segments[0] as string | undefined;
+    const inPublicAuthRoute = route ? PUBLIC_AUTH_ROUTES.has(route) : false;
+
+    if (!session && !inPublicAuthRoute) router.replace('/sign-in');
+    else if (session && route === 'sign-in') router.replace('/');
   }, [loading, session, segments]);
 
   if (loading) {
@@ -60,6 +64,9 @@ export default function RootLayout() {
         }}
       >
         <Stack.Screen name="sign-in" options={{ headerShown: false }} />
+        <Stack.Screen name="sign-up" options={{ title: 'Create account' }} />
+        <Stack.Screen name="forgot-password" options={{ title: 'Reset password' }} />
+        <Stack.Screen name="reset-password" options={{ title: 'Choose new password' }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="quickcheck" options={{ title: 'New QuickCheck', presentation: 'card' }} />
       </Stack>
