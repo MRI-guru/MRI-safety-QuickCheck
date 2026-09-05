@@ -5,6 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "scheme": "mrisafetyquickcheck",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "plugins": [
       "expo-router",
@@ -20,6 +21,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.mriguru.mrisafetyquickcheck",
       "buildNumber": "1",
+      "icon": "./assets/icon.png",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSFaceIDUsageDescription": "Use Face ID to securely sign in to MRI Safety QuickCheck."
