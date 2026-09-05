@@ -21,13 +21,20 @@ export default function ForgotPasswordScreen() {
     setBusy(true);
     setMessage('');
     try {
-      await supabase.auth.resetPasswordForEmail(normalizedEmail, {
+      const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
         redirectTo: 'mrisafetyquickcheck://reset-password'
       });
+
+      if (error) {
+        setSent(false);
+        setMessage('Unable to send the password reset email right now. Check your connection and try again.');
+        return;
+      }
 
       setSent(true);
       setMessage('If an account exists for that email, a password reset link has been sent. Open the email on this iPhone and tap the reset link.');
     } catch {
+      setSent(false);
       setMessage('Unable to reach the password reset service. Check your connection and try again.');
     } finally {
       setBusy(false);
