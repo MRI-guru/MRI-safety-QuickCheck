@@ -6,13 +6,23 @@
     "orientation": "portrait",
     "scheme": "mrisafetyquickcheck",
     "userInterfaceStyle": "automatic",
-    "plugins": ["expo-router", "expo-secure-store"],
+    "plugins": [
+      "expo-router",
+      [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": true,
+          "faceIDPermission": "Use Face ID to securely sign in to MRI Safety QuickCheck."
+        }
+      ]
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.mriguru.mrisafetyquickcheck",
       "buildNumber": "1",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSFaceIDUsageDescription": "Use Face ID to securely sign in to MRI Safety QuickCheck."
       }
     },
     "android": {
