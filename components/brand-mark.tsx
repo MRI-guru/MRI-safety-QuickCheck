@@ -15,7 +15,6 @@ export function BrandMark({ compact = false }: { compact?: boolean }) {
           width: size,
           height: size,
           borderRadius: compact ? 14 : 18,
-          borderCurve: 'continuous',
           boxShadow: '0 6px 18px rgba(10,85,122,0.22)'
         }}
       />
