@@ -55,9 +55,19 @@ export default function SignInScreen() {
       <View style={{ backgroundColor: palette.surface, borderRadius: radii.lg, borderCurve: 'continuous', padding: 18, gap: 13, boxShadow: '0 8px 26px rgba(20,33,43,0.07)' }}>
         <TextInput value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" autoComplete="email" textContentType="username" returnKeyType="next" placeholder="Email" placeholderTextColor={palette.muted} style={{ backgroundColor: palette.bg, borderRadius: radii.md, paddingHorizontal: 14, height: 50, color: palette.text, fontSize: 16 }} />
         <TextInput value={password} onChangeText={setPassword} secureTextEntry autoComplete="current-password" textContentType="password" returnKeyType="go" onSubmitEditing={signIn} placeholder="Password" placeholderTextColor={palette.muted} style={{ backgroundColor: palette.bg, borderRadius: radii.md, paddingHorizontal: 14, height: 50, color: palette.text, fontSize: 16 }} />
+
+        <Pressable onPress={() => router.push('/forgot-password')} disabled={busy} hitSlop={8} style={{ alignSelf: 'flex-end', opacity: busy ? 0.5 : 1 }}>
+          <Text style={{ color: palette.brand, fontSize: 14, fontWeight: '800' }}>Forgot password?</Text>
+        </Pressable>
+
         <Pressable disabled={busy || !isSupabaseConfigured} onPress={signIn} style={{ minHeight: 52, opacity: busy || !isSupabaseConfigured ? 0.45 : 1, backgroundColor: palette.brand, borderRadius: radii.md, alignItems: 'center', justifyContent: 'center' }}>
           {busy ? <ActivityIndicator color={palette.white} /> : <Text style={{ color: palette.white, fontSize: 16, fontWeight: '900' }}>Sign in</Text>}
         </Pressable>
+
+        <Pressable onPress={() => router.push('/sign-up')} disabled={busy || !isSupabaseConfigured} style={{ minHeight: 50, opacity: busy || !isSupabaseConfigured ? 0.45 : 1, borderWidth: 1, borderColor: palette.brand, borderRadius: radii.md, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ color: palette.brand, fontSize: 16, fontWeight: '900' }}>Create account</Text>
+        </Pressable>
+
         {message ? <Text selectable accessibilityLiveRegion="polite" style={{ color: palette.danger, fontSize: 13, lineHeight: 18 }}>{message}</Text> : null}
       </View>
 
