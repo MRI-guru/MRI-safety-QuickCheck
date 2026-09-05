@@ -3,6 +3,7 @@ import { ActivityIndicator, View } from 'react-native';
 import { Stack, router, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import type { Session } from '@supabase/supabase-js';
+import { AppErrorBoundary } from '@/components/app-error-boundary';
 import { supabase } from '@/lib/supabase';
 import { palette } from '@/lib/theme';
 
@@ -52,7 +53,7 @@ export default function RootLayout() {
   }
 
   return (
-    <>
+    <AppErrorBoundary>
       <StatusBar style="dark" />
       <Stack
         screenOptions={{
@@ -70,6 +71,6 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="quickcheck" options={{ title: 'New QuickCheck', presentation: 'card' }} />
       </Stack>
-    </>
+    </AppErrorBoundary>
   );
 }
