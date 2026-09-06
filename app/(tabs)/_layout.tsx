@@ -1,9 +1,10 @@
 import { Tabs } from 'expo-router';
 import { Image } from 'expo-image';
+import type { ColorValue } from 'react-native';
 import { palette } from '@/lib/theme';
 
-function TabIcon({ name, color }: { name: string; color: string }) {
-  return <Image source={`sf:${name}` as any} style={{ width: 23, height: 23 }} tintColor={color} />;
+function TabIcon({ name, color }: { name: string; color: ColorValue }) {
+  return <Image source={`sf:${name}` as any} style={{ width: 23, height: 23 }} tintColor={color as any} />;
 }
 
 export default function TabsLayout() {
