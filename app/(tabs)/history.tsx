@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
 import { Linking, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { supabase } from '@/lib/supabase';
@@ -42,7 +43,7 @@ export default function HistoryScreen() {
   const [message, setMessage] = useState('');
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
-  async function load() {
+  const load = useCallback(async () => {
     setRefreshing(true);
     const { data, error } = await supabase
       .from('scanner_checks')
@@ -52,9 +53,9 @@ export default function HistoryScreen() {
     setRefreshing(false);
     if (error) setMessage(error.message);
     else { setRows((data ?? []) as CheckRow[]); setMessage(''); }
-  }
+  }, []);
 
-  useEffect(() => { load(); }, []);
+  useFocusEffect(useCallback(() => { void load(); }, [load]));
 
   return (
     <ScrollView contentInsetAdjustmentBehavior="automatic" refreshControl={<RefreshControl refreshing={refreshing} onRefresh={load} />} contentContainerStyle={{ padding: 16, paddingBottom: 48, gap: 14 }}>
