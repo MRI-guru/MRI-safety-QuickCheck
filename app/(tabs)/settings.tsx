@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
@@ -30,12 +30,13 @@ function ActionRow({ icon, title, detail, onPress }: { icon: string; title: stri
 
 export default function SettingsScreen() {
   const [signingOut, setSigningOut] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
   const [message, setMessage] = useState('');
   const appVersion = Constants.expoConfig?.version ?? 'unknown';
   const buildNumber = Constants.nativeBuildVersion ?? Constants.expoConfig?.ios?.buildNumber ?? 'unknown';
 
   async function signOut() {
-    if (signingOut) return;
+    if (signingOut || deletingAccount) return;
     setSigningOut(true);
     setMessage('');
     try {
@@ -50,6 +51,37 @@ export default function SettingsScreen() {
     } finally {
       setSigningOut(false);
     }
+  }
+
+  async function deleteAccount() {
+    if (deletingAccount || signingOut) return;
+    setDeletingAccount(true);
+    setMessage('');
+    try {
+      const { error } = await supabase.rpc('quickcheck_delete_my_account');
+      if (error) {
+        setMessage('Unable to delete your account. Check your connection and try again.');
+        return;
+      }
+      await supabase.auth.signOut({ scope: 'local' });
+      router.replace('/sign-in');
+    } catch {
+      setMessage('Unable to delete your account. Check your connection and try again.');
+    } finally {
+      setDeletingAccount(false);
+    }
+  }
+
+  function confirmDeleteAccount() {
+    if (deletingAccount || signingOut) return;
+    Alert.alert(
+      'Delete account permanently?',
+      'This permanently deletes your MRI Safety QuickCheck account and account-linked app data, including saved scanner profiles, favorites, recents, and QuickCheck history. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete Account', style: 'destructive', onPress: () => void deleteAccount() },
+      ],
+    );
   }
 
   async function sendFeedback() {
@@ -105,9 +137,14 @@ export default function SettingsScreen() {
         <Text selectable style={{ color: palette.muted, fontSize: 13, lineHeight: 19 }}>This application is decision support. MRI personnel remain responsible for confirming the exact implant, current manufacturer MRI labeling, patient-specific conditions, scanner settings, and facility policy before scanning.</Text>
       </View>
 
-      <Pressable disabled={signingOut} onPress={signOut} style={{ minHeight: 50, opacity: signingOut ? 0.55 : 1, borderRadius: radii.md, borderWidth: 1, borderColor: palette.danger, alignItems: 'center', justifyContent: 'center' }}>
+      <Pressable disabled={signingOut || deletingAccount} onPress={signOut} style={{ minHeight: 50, opacity: signingOut || deletingAccount ? 0.55 : 1, borderRadius: radii.md, borderWidth: 1, borderColor: palette.danger, alignItems: 'center', justifyContent: 'center' }}>
         {signingOut ? <ActivityIndicator color={palette.danger} /> : <Text style={{ color: palette.danger, fontSize: 15, fontWeight: '900' }}>Sign out</Text>}
       </Pressable>
+
+      <Pressable disabled={signingOut || deletingAccount} onPress={confirmDeleteAccount} accessibilityRole="button" style={{ minHeight: 50, opacity: signingOut || deletingAccount ? 0.55 : 1, borderRadius: radii.md, backgroundColor: palette.danger, alignItems: 'center', justifyContent: 'center' }}>
+        {deletingAccount ? <ActivityIndicator color={palette.white} /> : <Text style={{ color: palette.white, fontSize: 15, fontWeight: '900' }}>Delete account permanently</Text>}
+      </Pressable>
+      <Text selectable style={{ color: palette.muted, fontSize: 11, lineHeight: 16, textAlign: 'center' }}>Account deletion removes your account-linked MRI Safety QuickCheck data and cannot be undone.</Text>
       {message ? <Text selectable accessibilityLiveRegion="polite" style={{ color: palette.danger, fontSize: 13, lineHeight: 18 }}>{message}</Text> : null}
     </ScrollView>
   );
