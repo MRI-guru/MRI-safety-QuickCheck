@@ -1,0 +1,79 @@
+name: Build 10 Manual iOS Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      submit_to_app_store_connect:
+        description: 'After a successful production build, submit the latest iOS build to App Store Connect'
+        required: true
+        type: boolean
+        default: false
+      confirmation:
+        description: 'Type BUILD10 to confirm this is the Build 10 release candidate'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-10-ios-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.ref == 'refs/heads/build-10-rc' && inputs.confirmation == 'BUILD10'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+    steps:
+      - name: Checkout Build 10 RC
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Verify Expo authentication secret
+        shell: bash
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "Missing GitHub Actions secret: EXPO_TOKEN"
+            echo "Add an Expo access token as repository secret EXPO_TOKEN before running this workflow."
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Exact-system wrapper guard
+        shell: bash
+        run: |
+          if grep -R --line-number --fixed-strings "quickcheck_run_exact_system_check_v4" app; then
+            echo "Build 10 must not call the v4 exact-system RPC from mobile code."
+            exit 1
+          fi
+          grep -R --line-number --fixed-strings "quickcheck_run_exact_system_check_v5" app >/dev/null || {
+            echo "Build 10 mobile code must call the v5 exact-system RPC."
+            exit 1
+          }
+
+      - name: TypeScript typecheck
+        run: npm run typecheck
+
+      - name: Expo project health
+        run: npx expo-doctor
+
+      - name: Show remote iOS app version/build configuration
+        run: npm run release:ios:version -- --non-interactive
+
+      - name: Build production iOS binary
+        run: npx eas-cli@latest build -p ios --profile production --non-interactive --wait
+
+      - name: Submit latest iOS build to App Store Connect
+        if: inputs.submit_to_app_store_connect == true
+        run: npx eas-cli@latest submit -p ios --profile production --latest --non-interactive
