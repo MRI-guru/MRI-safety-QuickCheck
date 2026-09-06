@@ -1,66 +1,68 @@
-# MRI Safety QuickCheck — Controlled Beta Release Checklist
+# MRI Safety QuickCheck — Build 10 Release Checklist
 
 ## Automated release gates
 
-- [x] Clinical regression suite v2: 46/46 passing
+- [x] Clinical regression v31: 589/589 passing
+- [x] Clinical regression v2 baseline: 46/46 passing
 - [x] Release matrix v2: 16/16 passing
-- [x] No active records falsely marked verified without labeling verification
 - [x] Exact-system engine v5 is the active compatibility path
-- [x] Scanner profile selection/default/delete workflow implemented
-- [x] QuickCheck History expanded for audit review
+- [x] CI prohibits reintroducing the v4 mobile exact-system RPC
+- [x] TypeScript passes
+- [x] Expo Doctor passes
+- [x] Scanner selection persistence/race hardening implemented
+- [x] Device-question and exact-check stale-response guards implemented
+- [x] QuickCheck History refreshes on focus and exposes tappable manufacturer source links
+- [x] In-app account deletion implemented for App Store account-creation compliance
+- [x] No open GitHub release-blocker issues
 
 ## Catalog / labeling
 
-- [x] 373 active records currently verified
-- [ ] Resolve remaining 4 `needs_review` records only when current manufacturer/authoritative labeling is sufficient
-- [ ] Do not promote Abbott Quadra Assura CD3371-40C until exact MRI Ready device/lead combinations are loaded and verified
-- [ ] Keep unresolved legacy orbital/stapes records fail-closed until authoritative source re-verification is complete
+- [x] Current release remains manufacturer-labeling-first and fail-closed
+- [x] Full active cardiac catalog currently represented in the app has normalized completeness guards
+- [x] Unresolved configurations remain unknown/review-required rather than being promoted for release convenience
+- [ ] Continue resolving remaining `needs_review` catalog records only when current manufacturer/authoritative labeling is sufficient; this is ongoing catalog work, not a reason to weaken fail-closed behavior
+- [ ] Do not promote unresolved legacy or exact-component gaps until manufacturer evidence is sufficient
 
-## iOS beta build
+## iOS / EAS configuration
 
-- [x] iOS bundle identifier configured: `com.mriguru.mrisafetyquickcheck`
-- [x] EAS development, preview, and production build profiles configured
-- [x] Production builds use auto-increment
+- [x] Bundle identifier: `com.mriguru.mrisafetyquickcheck`
+- [x] Expo/EAS project ID configured: `04e8415c-22c9-41b2-819f-7e4ee0d1261c`
+- [x] App Store Connect app ID pinned in EAS submit config: `6808849541`
+- [x] Production builds use remote app-version source and auto-increment build number
 - [x] Non-exempt encryption flag configured as false
-- [ ] Confirm Expo/EAS account is linked to the project
-- [ ] Confirm paid Apple Developer membership
-- [ ] Configure/confirm iOS distribution certificate and provisioning profile
-- [ ] Create or confirm App Store Connect app record
-- [ ] Create production iOS build
-- [ ] Submit build to TestFlight
-- [ ] Create internal TestFlight group
+- [x] Face ID usage description configured
+- [x] Current marketing version remains `1.0.0`; Build 10 refers to the release-candidate/build number track unless App Store Connect requires a new marketing-version record
 
-## Beta test scope
+## Apple / App Store Connect items that require account access
 
-The first beta is a controlled workflow test. It must not be treated as an independent substitute for current manufacturer MRI labeling or institutional MRI safety policy.
+These cannot be verified from the connected GitHub/Supabase tools and must be confirmed in Apple/Expo before submission:
 
-Testers should specifically exercise:
+- [ ] Apple Developer membership and current agreements are active
+- [ ] iOS distribution certificate and provisioning profile are valid, or EAS can create/repair them
+- [ ] App Store Connect app record `6808849541` is accessible and matches bundle ID `com.mriguru.mrisafetyquickcheck`
+- [ ] Privacy Policy URL is present and publicly reachable
+- [ ] App Privacy answers accurately describe Supabase authentication/account data and any other collected data
+- [ ] Updated 2026 Age Rating questionnaire is complete
+- [ ] Regulated Medical Device status declaration is completed for applicable storefronts/regions
+- [ ] Support URL is present and reaches real contact/support information
+- [ ] App Review contact/sign-in information is current
+- [ ] Existing screenshots remain accurate for Build 10, or updated screenshots are uploaded
+- [ ] “What’s New in This Version” is entered from `BUILD10_APP_STORE_HANDOFF.md`
 
-- scanner switching and default scanner behavior
-- 1.5T-only implant evaluated on a 3T scanner
-- exact generator + lead/component workflows
-- incomplete or unknown systems
-- abandoned/fractured lead paths
-- EOS/serial-number exceptions
-- body-region restrictions
-- SAR/B1+rms/coil/programming confirmations
-- pumps requiring pre/post-MRI workflow
-- manufacturer-labeling link/source visibility
-- Favorites/Recent devices
-- QuickCheck History audit details
+## Build 10 binary / TestFlight gate
 
-## Required beta feedback
+- [ ] Create the production iOS Build 10 binary from `build-10-rc`
+- [ ] Confirm the uploaded binary is associated with the intended App Store version record
+- [ ] Install the processed build from TestFlight on a real iPhone
+- [ ] Run the physical scanner-selection matrix in `SCANNER_STRESS_TEST.md`
+- [ ] Run the real-device clinician workflow smoke cases in `CLINICIAN_WORKFLOW_QA.md`
+- [ ] Verify account creation, sign-in/out, password reset, Face ID, and **Delete account permanently** on the TestFlight binary
+- [ ] Verify manufacturer source links open correctly from QuickCheck and History
+- [ ] Verify a newly completed QuickCheck appears in History after returning to the History tab
+- [ ] Submit to App Review only after the above physical/TestFlight checks pass
 
-For every suspected incorrect result, capture:
+## Controlled release rule
 
-1. device manufacturer/model and all known component model numbers
-2. selected scanner make/model/field strength
-3. scan region
-4. displayed QuickCheck status
-5. manufacturer document/manual used for comparison
-6. screenshot of the result when possible
-7. whether the issue is search, data, rules-engine, UI, or source-link related
+Do not submit a Build 10 binary if any automated gate fails or any real-device smoke test produces a stale, more-permissive, source-less, or mismatched result. Unknown/incomplete implant configurations remain fail-closed.
 
-## Go/no-go rule
-
-Do not send a new beta build if either automated release gate fails. A catalog record that lacks sufficient current source verification remains `needs_review`/fail-closed rather than being promoted to verified for release convenience.
+Build 9 / `main` remains unchanged until Build 10 is accepted as the release candidate.
