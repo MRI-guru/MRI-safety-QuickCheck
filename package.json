@@ -9,7 +9,10 @@
     "android": "expo start --android",
     "web": "expo start --web",
     "doctor": "expo-doctor",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "release:ios:version": "npx eas-cli@latest build:version:get -p ios",
+    "release:ios:build": "npx eas-cli@latest build -p ios --profile production",
+    "release:ios:submit": "npx eas-cli@latest submit -p ios --profile production --latest"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.115.0",
