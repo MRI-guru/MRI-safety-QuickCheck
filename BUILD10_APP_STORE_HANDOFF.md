@@ -54,6 +54,20 @@ npm run release:ios:submit
 
 `release:ios:submit` submits the latest production iOS build to the App Store Connect app configured in `eas.json` (`6808849541`). Do not run the submit command if another newer production build has been created in the meantime.
 
+## Guarded GitHub Actions release path
+
+A manual-only workflow is available at `.github/workflows/build-10-release.yml`.
+
+Requirements:
+
+- Run it from the `build-10-rc` branch only.
+- Add a repository Actions secret named `EXPO_TOKEN` containing an Expo access token for the correct EAS project/account.
+- Enter the confirmation value `BUILD10` when dispatching the workflow.
+- Leave `submit_to_app_store_connect` off to create the production iOS build without submitting it.
+- Turn `submit_to_app_store_connect` on only when you intentionally want the successful production build submitted to App Store Connect.
+
+Before EAS build/submission, this workflow re-runs dependency installation, the v5 exact-system wrapper guard, TypeScript, and Expo Doctor. It uses the production EAS profile and never runs automatically from a push.
+
 ## App Store Connect — What’s New
 
 Suggested text:
@@ -85,10 +99,10 @@ The app intentionally requires sign-in because saved scanner profiles, favorites
 ## Build / upload sequence
 
 1. Use the `build-10-rc` branch.
-2. Run `npm run release:ios:version` and verify the remote iOS build sequence.
-3. Run `npm run release:ios:build` to create the production iOS binary.
+2. Use either the local EAS commands above or the guarded manual GitHub workflow.
+3. Verify the remote iOS build sequence before creating the binary.
 4. Confirm EAS assigns the intended next iOS build number; for this release track, that should be Build 10 if the remote build counter is currently at 9.
-5. After confirming the correct successful binary, run `npm run release:ios:submit` to submit it to App Store Connect app ID `6808849541`.
+5. Submit the intended successful Build 10 binary to App Store Connect app ID `6808849541`.
 6. Wait for Apple build processing to finish.
 7. Install that exact processed build from TestFlight on a real iPhone.
 8. Complete `SCANNER_STRESS_TEST.md` and the real-device portions of `CLINICIAN_WORKFLOW_QA.md`.
