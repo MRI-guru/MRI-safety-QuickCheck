@@ -13,8 +13,7 @@ export function BrandMark({ compact = false }: { compact?: boolean }) {
           width: size,
           height: size,
           borderRadius: radius,
-          overflow: 'hidden',
-          boxShadow: '0 6px 18px rgba(10,85,122,0.22)'
+          overflow: 'hidden'
         }}
       >
         <Image
