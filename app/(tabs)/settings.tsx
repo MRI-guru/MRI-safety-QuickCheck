@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
@@ -30,12 +30,13 @@ function ActionRow({ icon, title, detail, onPress }: { icon: string; title: stri
 
 export default function SettingsScreen() {
   const [signingOut, setSigningOut] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
   const [message, setMessage] = useState('');
   const appVersion = Constants.expoConfig?.version ?? 'unknown';
   const buildNumber = Constants.nativeBuildVersion ?? Constants.expoConfig?.ios?.buildNumber ?? 'unknown';
 
   async function signOut() {
-    if (signingOut) return;
+    if (signingOut || deletingAccount) return;
     setSigningOut(true);
     setMessage('');
     try {
@@ -50,6 +51,37 @@ export default function SettingsScreen() {
     } finally {
       setSigningOut(false);
     }
+  }
+
+  async function deleteAccount() {
+    if (deletingAccount || signingOut) return;
+    setDeletingAccount(true);
+    setMessage('');
+    try {
+      const { error } = await supabase.functions.invoke('delete-account', { body: {} });
+      if (error) {
+        setMessage('Unable to delete your account. No further action was taken. Please try again.');
+        return;
+      }
+      await supabase.auth.signOut();
+      router.replace('/sign-in');
+    } catch {
+      setMessage('Unable to delete your account. No further action was taken. Please try again.');
+    } finally {
+      setDeletingAccount(false);
+    }
+  }
+
+  function confirmDeleteAccount() {
+    if (deletingAccount || signingOut) return;
+    Alert.alert(
+      'Delete account?',
+      'This permanently deletes your MRI Safety QuickCheck account and associated saved app data. This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete Account', style: 'destructive', onPress: deleteAccount },
+      ],
+    );
   }
 
   async function sendFeedback() {
@@ -105,9 +137,17 @@ export default function SettingsScreen() {
         <Text selectable style={{ color: palette.muted, fontSize: 13, lineHeight: 19 }}>This application is decision support. MRI personnel remain responsible for confirming the exact implant, current manufacturer MRI labeling, patient-specific conditions, scanner settings, and facility policy before scanning.</Text>
       </View>
 
-      <Pressable disabled={signingOut} onPress={signOut} style={{ minHeight: 50, opacity: signingOut ? 0.55 : 1, borderRadius: radii.md, borderWidth: 1, borderColor: palette.danger, alignItems: 'center', justifyContent: 'center' }}>
-        {signingOut ? <ActivityIndicator color={palette.danger} /> : <Text style={{ color: palette.danger, fontSize: 15, fontWeight: '900' }}>Sign out</Text>}
-      </Pressable>
+      <View style={{ backgroundColor: palette.surface, borderRadius: radii.lg, borderCurve: 'continuous', padding: 18, gap: 12 }}>
+        <Text selectable style={{ color: palette.text, fontSize: 17, fontWeight: '900' }}>Account</Text>
+        <Pressable disabled={signingOut || deletingAccount} onPress={signOut} accessibilityRole="button" style={{ minHeight: 50, opacity: signingOut || deletingAccount ? 0.55 : 1, borderRadius: radii.md, borderWidth: 1, borderColor: palette.brand, alignItems: 'center', justifyContent: 'center' }}>
+          {signingOut ? <ActivityIndicator color={palette.brand} /> : <Text style={{ color: palette.brand, fontSize: 15, fontWeight: '900' }}>Sign out</Text>}
+        </Pressable>
+        <Pressable disabled={signingOut || deletingAccount} onPress={confirmDeleteAccount} accessibilityRole="button" style={{ minHeight: 50, opacity: signingOut || deletingAccount ? 0.55 : 1, borderRadius: radii.md, borderWidth: 1, borderColor: palette.danger, alignItems: 'center', justifyContent: 'center' }}>
+          {deletingAccount ? <ActivityIndicator color={palette.danger} /> : <Text style={{ color: palette.danger, fontSize: 15, fontWeight: '900' }}>Delete account</Text>}
+        </Pressable>
+        <Text selectable style={{ color: palette.muted, fontSize: 12, lineHeight: 17 }}>Deleting your account permanently removes your sign-in and associated saved app data. It cannot be undone.</Text>
+      </View>
+
       {message ? <Text selectable accessibilityLiveRegion="polite" style={{ color: palette.danger, fontSize: 13, lineHeight: 18 }}>{message}</Text> : null}
     </ScrollView>
   );
