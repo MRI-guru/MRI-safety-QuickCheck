@@ -35,6 +35,25 @@ Build 10 refers to the iOS build/release-candidate track, not marketing version 
 - Supabase account-deletion RPC restricted to authenticated users
 - Build 9 / `main` remains unchanged
 
+## Exact EAS commands from `build-10-rc`
+
+Run from the repository root after signing into the correct Expo/EAS account:
+
+```bash
+npm run release:ios:version
+npm run release:ios:build
+```
+
+The first command shows the current remote iOS version/build state. Confirm the next production build will be **10** before starting the production build. The production profile already has `autoIncrement: true`.
+
+After the production build succeeds and you have confirmed it is the intended Build 10 binary:
+
+```bash
+npm run release:ios:submit
+```
+
+`release:ios:submit` submits the latest production iOS build to the App Store Connect app configured in `eas.json` (`6808849541`). Do not run the submit command if another newer production build has been created in the meantime.
+
 ## App Store Connect — What’s New
 
 Suggested text:
@@ -66,14 +85,15 @@ The app intentionally requires sign-in because saved scanner profiles, favorites
 ## Build / upload sequence
 
 1. Use the `build-10-rc` branch.
-2. Run a production EAS iOS build using the `production` profile.
-3. Confirm EAS assigns the intended next iOS build number; for this release track, that should be Build 10 if the remote build counter is currently at 9.
-4. Submit the resulting production build to App Store Connect app ID `6808849541`.
-5. Wait for Apple build processing to finish.
-6. Install that exact processed build from TestFlight on a real iPhone.
-7. Complete `SCANNER_STRESS_TEST.md` and the real-device portions of `CLINICIAN_WORKFLOW_QA.md`.
-8. Specifically verify account deletion on the TestFlight binary with a disposable test account.
-9. Only then select the build for the App Store version and submit to App Review.
+2. Run `npm run release:ios:version` and verify the remote iOS build sequence.
+3. Run `npm run release:ios:build` to create the production iOS binary.
+4. Confirm EAS assigns the intended next iOS build number; for this release track, that should be Build 10 if the remote build counter is currently at 9.
+5. After confirming the correct successful binary, run `npm run release:ios:submit` to submit it to App Store Connect app ID `6808849541`.
+6. Wait for Apple build processing to finish.
+7. Install that exact processed build from TestFlight on a real iPhone.
+8. Complete `SCANNER_STRESS_TEST.md` and the real-device portions of `CLINICIAN_WORKFLOW_QA.md`.
+9. Specifically verify account deletion on the TestFlight binary with a disposable test account.
+10. Only then select the build for the App Store version and submit to App Review.
 
 ## Real-device minimum smoke pass
 
