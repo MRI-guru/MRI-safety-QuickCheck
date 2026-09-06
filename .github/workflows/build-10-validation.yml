@@ -1,9 +1,9 @@
-name: Build 10 RC Validation
+name: Build 11 RC Validation
 
 on:
   push:
     branches:
-      - build-10-rc
+      - build-11-rc
   pull_request:
     branches:
       - main
@@ -33,11 +33,11 @@ jobs:
         shell: bash
         run: |
           if grep -R --line-number --fixed-strings "quickcheck_run_exact_system_check_v4" app; then
-            echo "Build 10 must not call the v4 exact-system RPC from mobile code."
+            echo "Build 11 must not call the v4 exact-system RPC from mobile code."
             exit 1
           fi
           grep -R --line-number --fixed-strings "quickcheck_run_exact_system_check_v5" app >/dev/null || {
-            echo "Build 10 mobile code must call the v5 exact-system RPC."
+            echo "Build 11 mobile code must call the v5 exact-system RPC."
             exit 1
           }
 
