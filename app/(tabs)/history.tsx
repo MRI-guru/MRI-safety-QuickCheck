@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { Linking, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { supabase } from '@/lib/supabase';
 import { palette, radii, toneColors, type QuickCheckTone } from '@/lib/theme';
@@ -140,11 +140,15 @@ export default function HistoryScreen() {
                 ) : null}
 
                 {source ? (
-                  <View style={{ gap: 5 }}>
+                  <View style={{ gap: 7 }}>
                     <Text selectable style={{ color: palette.muted, fontSize: 11, fontWeight: '800', letterSpacing: 0.3 }}>MANUFACTURER SOURCE</Text>
                     <Text selectable style={{ color: palette.text, fontSize: 13, fontWeight: '700' }}>{source.title || 'Manufacturer MRI labeling'}</Text>
                     {source.document_version || source.source_version ? <Text selectable style={{ color: palette.muted, fontSize: 12 }}>Version: {source.document_version || source.source_version}</Text> : null}
-                    {source.source_url ? <Text selectable style={{ color: palette.brand, fontSize: 12, lineHeight: 17 }}>{source.source_url}</Text> : null}
+                    {source.source_url ? (
+                      <Pressable onPress={() => Linking.openURL(source.source_url)} style={{ alignSelf: 'flex-start', backgroundColor: palette.brandSoft, paddingHorizontal: 12, paddingVertical: 9, borderRadius: radii.pill }}>
+                        <Text style={{ color: palette.brand, fontSize: 12, fontWeight: '900' }}>Open Manufacturer MRI Instructions</Text>
+                      </Pressable>
+                    ) : null}
                   </View>
                 ) : null}
 
