@@ -31,9 +31,14 @@ The live v31 regression matrix is passing across representative high-risk workfl
 - Aurora EV-ICD standard: 5/5
 - Aurora EV-ICD adversarial: 12/12
 
-## Open Build 10 RC blockers found during Step 2
+## Step 2 blockers resolved
 
-1. GitHub issue #2 — stale device-question response can overwrite the currently selected device after rapid A → B switching.
-2. GitHub issue #3 — in-flight exact QuickCheck can return after scanner/device/region/coil context changes and pair an old result with a new visible context.
+1. GitHub issue #2 — stale device-question responses after rapid device A → B selection: FIXED/CLOSED.
+2. GitHub issue #3 — stale in-flight exact QuickCheck after scanner/device/region/coil/context change: FIXED/CLOSED.
+3. History manufacturer-source navigation: manufacturer MRI source is now actionable from audit details.
 
-Step 2 remains **BLOCKED** until issues #2 and #3 are fixed and revalidated. After those code fixes pass CI and backend gates, the remaining real-device/TestFlight-only cases must be recorded as pass/fail before clinician distribution.
+## Remaining Step 2 work
+
+Step 2 is no longer blocked by known code defects. Remaining work is the real-device/TestFlight execution of UI-only workflow cases, including rapid interaction behavior, source opening on-device, History audit review, scanner persistence, and final visual verification that no stale result is shown after context changes.
+
+Step 2 passes only after those manual cases are recorded as pass/fail before clinician distribution.
