@@ -54,9 +54,39 @@ export default function SignUpScreen() {
       }
 
       setCreated(true);
-      setMessage('Check your email to confirm your account, then return to MRI Safety QuickCheck and sign in.');
+      setMessage('Confirmation email sent. Open the link, then return here. If the link opens the app, sign-in will complete automatically.');
     } catch {
       setMessage('Unable to reach the secure sign-up service. Check your connection and try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function continueAfterVerification() {
+    if (busy) return;
+    setBusy(true);
+    setMessage('Checking your account…');
+    try {
+      const { data: current } = await supabase.auth.getSession();
+      if (current.session) {
+        router.replace('/');
+        return;
+      }
+
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password
+      });
+      if (error || !data.session) {
+        const text = (error?.message || '').toLowerCase();
+        setMessage(text.includes('confirm') || text.includes('verified')
+          ? 'Your email is not confirmed yet. Open the confirmation link, then tap this button again.'
+          : 'Verification may be complete, but sign-in did not finish. Tap Back to sign in and use the same email and password.');
+        return;
+      }
+      router.replace('/');
+    } catch {
+      setMessage('Unable to check verification right now. Check your connection and try again.');
     } finally {
       setBusy(false);
     }
@@ -79,7 +109,11 @@ export default function SignUpScreen() {
           <Pressable disabled={busy || !isSupabaseConfigured} onPress={signUp} style={{ minHeight: 52, opacity: busy || !isSupabaseConfigured ? 0.45 : 1, backgroundColor: palette.brand, borderRadius: radii.md, alignItems: 'center', justifyContent: 'center' }}>
             {busy ? <ActivityIndicator color={palette.white} /> : <Text style={{ color: palette.white, fontSize: 16, fontWeight: '900' }}>Create account</Text>}
           </Pressable>
-        ) : null}
+        ) : (
+          <Pressable disabled={busy} onPress={continueAfterVerification} style={{ minHeight: 52, opacity: busy ? 0.55 : 1, backgroundColor: palette.safe, borderRadius: radii.md, alignItems: 'center', justifyContent: 'center' }}>
+            {busy ? <ActivityIndicator color={palette.white} /> : <Text style={{ color: palette.white, fontSize: 16, fontWeight: '900' }}>I confirmed my email — Continue</Text>}
+          </Pressable>
+        )}
 
         {message ? <Text selectable accessibilityLiveRegion="polite" style={{ color: created ? palette.text : palette.danger, fontSize: 13, lineHeight: 18 }}>{message}</Text> : null}
 
