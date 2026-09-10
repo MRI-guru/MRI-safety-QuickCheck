@@ -125,6 +125,7 @@ export default function RootLayout() {
         <Stack.Screen name="sign-up" options={{ title: 'Create account' }} />
         <Stack.Screen name="forgot-password" options={{ title: 'Reset password' }} />
         <Stack.Screen name="reset-password" options={{ title: 'Choose new password' }} />
+        <Stack.Screen name="privacy" options={{ title: 'Privacy Policy' }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="quickcheck" options={{ title: 'New QuickCheck', presentation: 'card' }} />
       </Stack>
