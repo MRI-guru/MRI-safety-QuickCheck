@@ -27,35 +27,24 @@ export default function DashboardScreen() {
       <BrandMark />
 
       <View style={{ backgroundColor: palette.surface, borderRadius: radii.lg, borderCurve: 'continuous', padding: 18, gap: 12, boxShadow: '0 6px 22px rgba(20,33,43,0.07)' }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <View style={{ width: 9, height: 9, borderRadius: 9, backgroundColor: palette.safe }} />
-          <Text selectable style={{ color: palette.muted, fontSize: 12, fontWeight: '800', letterSpacing: 0.7 }}>SCANNER PROFILE</Text>
-        </View>
-        <View style={{ gap: 3 }}>
-          <Text selectable style={{ color: palette.text, fontSize: 20, fontWeight: '800' }}>Select or save your scanner</Text>
-          <Text selectable style={{ color: palette.muted, fontSize: 14, lineHeight: 20 }}>QuickCheck will compare every implant against the exact scanner field strength and profile you choose.</Text>
-        </View>
-        <Link href="/(tabs)/scanners" asChild>
-          <Pressable style={{ alignSelf: 'flex-start', paddingVertical: 8, paddingHorizontal: 12, backgroundColor: palette.brandSoft, borderRadius: radii.pill }}>
-            <Text style={{ color: palette.brand, fontSize: 13, fontWeight: '800' }}>Manage scanners</Text>
-          </Pressable>
-        </Link>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}><View style={{ width: 9, height: 9, borderRadius: 9, backgroundColor: palette.safe }} /><Text selectable style={{ color: palette.muted, fontSize: 12, fontWeight: '800', letterSpacing: 0.7 }}>SCANNER PROFILE</Text></View>
+        <View style={{ gap: 3 }}><Text selectable style={{ color: palette.text, fontSize: 20, fontWeight: '800' }}>Select or save your scanner</Text><Text selectable style={{ color: palette.muted, fontSize: 14, lineHeight: 20 }}>QuickCheck will compare every implant against the exact scanner field strength and profile you choose.</Text></View>
+        <Link href="/(tabs)/scanners" asChild><Pressable style={{ alignSelf: 'flex-start', paddingVertical: 8, paddingHorizontal: 12, backgroundColor: palette.brandSoft, borderRadius: radii.pill }}><Text style={{ color: palette.brand, fontSize: 13, fontWeight: '800' }}>Manage scanners</Text></Pressable></Link>
       </View>
 
       <Link href="/quickcheck" asChild>
-        <Pressable
-          onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)}
-          style={{ backgroundColor: palette.brand, borderRadius: radii.lg, borderCurve: 'continuous', padding: 22, gap: 14, boxShadow: '0 10px 28px rgba(10,85,122,0.24)' }}
-        >
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <View style={{ width: 52, height: 52, borderRadius: 17, borderCurve: 'continuous', backgroundColor: 'rgba(255,255,255,0.16)', alignItems: 'center', justifyContent: 'center' }}>
-              <Image source="sf:shield.lefthalf.filled.badge.checkmark" style={{ width: 29, height: 29 }} tintColor={palette.white} />
-            </View>
-            <Image source="sf:arrow.up.right" style={{ width: 22, height: 22 }} tintColor={palette.white} />
-          </View>
-          <View style={{ gap: 5 }}>
-            <Text selectable style={{ color: palette.white, fontSize: 28, fontWeight: '900', letterSpacing: -0.8 }}>New QuickCheck</Text>
-            <Text selectable style={{ color: 'rgba(255,255,255,0.82)', fontSize: 15, lineHeight: 21 }}>Scanner → device → exact components → manufacturer conditions.</Text>
+        <Pressable onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)} style={{ backgroundColor: palette.brand, borderRadius: radii.lg, borderCurve: 'continuous', padding: 22, gap: 14, boxShadow: '0 10px 28px rgba(10,85,122,0.24)' }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}><View style={{ width: 52, height: 52, borderRadius: 17, borderCurve: 'continuous', backgroundColor: 'rgba(255,255,255,0.16)', alignItems: 'center', justifyContent: 'center' }}><Image source="sf:shield.lefthalf.filled.badge.checkmark" style={{ width: 29, height: 29 }} tintColor={palette.white} /></View><Image source="sf:arrow.up.right" style={{ width: 22, height: 22 }} tintColor={palette.white} /></View>
+          <View style={{ gap: 5 }}><Text selectable style={{ color: palette.white, fontSize: 28, fontWeight: '900', letterSpacing: -0.8 }}>New QuickCheck</Text><Text selectable style={{ color: 'rgba(255,255,255,0.82)', fontSize: 15, lineHeight: 21 }}>Scanner → device → exact components → manufacturer conditions.</Text></View>
+        </Pressable>
+      </Link>
+
+      <Link href="/multi-quickcheck" asChild>
+        <Pressable onPress={() => Haptics.selectionAsync()} style={{ backgroundColor: palette.surface, borderRadius: radii.lg, borderCurve: 'continuous', padding: 18, gap: 10, borderWidth: 1.5, borderColor: palette.brand }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <View style={{ width: 46, height: 46, borderRadius: 15, backgroundColor: palette.brandSoft, alignItems: 'center', justifyContent: 'center' }}><Image source="sf:rectangle.stack.badge.checkmark" style={{ width: 25, height: 25 }} tintColor={palette.brand} /></View>
+            <View style={{ flex: 1, gap: 3 }}><Text selectable style={{ color: palette.text, fontSize: 18, fontWeight: '900' }}>Multiple implants</Text><Text selectable style={{ color: palette.muted, fontSize: 13, lineHeight: 18 }}>Combine exact checks for every implant in one patient. The most restrictive implant controls the overall result.</Text></View>
+            <Image source="sf:chevron.right" style={{ width: 12, height: 18 }} tintColor={palette.brand} />
           </View>
         </Pressable>
       </Link>
@@ -76,9 +65,7 @@ export default function DashboardScreen() {
         <ActionRow icon="lock.shield.fill" title="Fail-closed engine" detail="Missing serials, components, configuration details, or required confirmations stay unverified." />
       </View>
 
-      <Text selectable style={{ color: palette.muted, textAlign: 'center', fontSize: 12, lineHeight: 17 }}>
-        Decision support only. Final MRI screening remains subject to current manufacturer labeling, patient-specific review, and facility policy.
-      </Text>
+      <Text selectable style={{ color: palette.muted, textAlign: 'center', fontSize: 12, lineHeight: 17 }}>Decision support only. Final MRI screening remains subject to current manufacturer labeling, patient-specific review, and facility policy.</Text>
     </ScrollView>
   );
 }
