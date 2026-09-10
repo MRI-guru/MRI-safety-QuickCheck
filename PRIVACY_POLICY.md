@@ -40,7 +40,7 @@ We do not sell personal information. Information is shared with service provider
 
 ## Data retention and account deletion
 
-Account and application data may be retained while the controlled beta is active and as needed for security, quality, troubleshooting, and regulatory or legal obligations. A production release must provide a clear account-deletion request path before public App Store launch if account creation remains available in the app.
+Users can delete their account from Settings inside MRI Safety QuickCheck. The deletion workflow removes the authentication account and account-linked saved application data. De-identified security or audit records may be retained when needed for security, quality, troubleshooting, legal, or regulatory obligations.
 
 ## Security
 
