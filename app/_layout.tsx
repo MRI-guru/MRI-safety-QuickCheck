@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Linking, View } from 'react-native';
 import { Stack, router, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import type { Session } from '@supabase/supabase-js';
@@ -9,6 +9,15 @@ import { palette } from '@/lib/theme';
 
 const PUBLIC_AUTH_ROUTES = new Set(['sign-in', 'sign-up', 'forgot-password', 'reset-password']);
 
+function getAuthParam(url: string, key: string) {
+  try {
+    const normalized = url.includes('#') ? url.replace('#', url.includes('?') ? '&' : '?') : url;
+    return new URL(normalized).searchParams.get(key);
+  } catch {
+    return null;
+  }
+}
+
 export default function RootLayout() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
@@ -17,10 +26,57 @@ export default function RootLayout() {
   useEffect(() => {
     let mounted = true;
 
-    supabase.auth.getSession().then(({ data, error }) => {
+    async function applyAuthUrl(url?: string | null) {
+      if (!url) return false;
+
+      const accessToken = getAuthParam(url, 'access_token');
+      const refreshToken = getAuthParam(url, 'refresh_token');
+      const code = getAuthParam(url, 'code');
+      const type = getAuthParam(url, 'type');
+
+      if (!accessToken && !refreshToken && !code) return false;
+
+      try {
+        let nextSession: Session | null = null;
+        if (accessToken && refreshToken) {
+          const { data, error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken
+          });
+          if (error) throw error;
+          nextSession = data.session;
+        } else if (code) {
+          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) throw error;
+          nextSession = data.session;
+        }
+
+        if (!mounted) return true;
+        if (nextSession) setSession(nextSession);
+
+        if (type === 'recovery') router.replace('/reset-password');
+        else router.replace('/');
+        return true;
+      } catch (error) {
+        console.warn('Unable to establish auth session from deep link', error);
+        return false;
+      }
+    }
+
+    async function initializeAuth() {
+      const initialUrl = await Linking.getInitialURL();
+      await applyAuthUrl(initialUrl);
+
+      const { data, error } = await supabase.auth.getSession();
       if (!mounted) return;
       setSession(error ? null : data.session);
       setLoading(false);
+    }
+
+    initializeAuth();
+
+    const urlSubscription = Linking.addEventListener('url', ({ url }) => {
+      applyAuthUrl(url);
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
@@ -31,6 +87,7 @@ export default function RootLayout() {
 
     return () => {
       mounted = false;
+      urlSubscription.remove();
       listener.subscription.unsubscribe();
     };
   }, []);
