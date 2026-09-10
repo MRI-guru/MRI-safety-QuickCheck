@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { Linking, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { supabase } from '@/lib/supabase';
 import { palette, radii, toneColors, type QuickCheckTone } from '@/lib/theme';
@@ -24,6 +24,23 @@ function toneFor(status?: string | null): QuickCheckTone {
   if (s.includes('not cleared') || s.includes('unsafe') || s.includes('do not')) return 'danger';
   if (s.includes('conditional')) return 'conditional';
   return 'unknown';
+}
+
+function friendlyBasis(value?: string | null) {
+  if (!value) return null;
+  const labels: Record<string, string> = {
+    generator_specific_manufacturer_eligibility: 'Exact generator/component manufacturer eligibility',
+    manufacturer_verified_component_set: 'Manufacturer-verified component set',
+    preverified_exact_system: 'Preverified exact implanted system',
+    cardiac_componentless_manufacturer_labeling: 'Manufacturer-labeled standalone cardiac device',
+    cardiac_complete_system_required: 'Complete cardiac system required',
+    medtronic_aurora_ev_icd_exact_system: 'Medtronic Aurora EV-ICD exact system',
+    medtronic_interstim_eos_labeling: 'Medtronic InterStim EOS manufacturer pathway',
+    medtronic_interstim_lead_fragment_labeling: 'Medtronic InterStim retained lead-fragment pathway',
+    axonics_special_integrity_manufacturer_labeling: 'Axonics special integrity manufacturer pathway',
+    nalu_pns: 'Nalu manufacturer-specific PNS pathway'
+  };
+  return labels[value] ?? value.replaceAll('_', ' ');
 }
 
 function Detail({ label, value }: { label: string; value?: string | number | null }) {
@@ -84,7 +101,10 @@ export default function HistoryScreen() {
         const source = result.source || components.find((x: any) => x?.result?.source)?.result?.source || result.manufacturer_guidance?.source;
         const checklist = Array.isArray(row.condition_checklist) && row.condition_checklist.length ? row.condition_checklist : (Array.isArray(result.condition_checklist) ? result.condition_checklist : []);
         const confirmations = row.condition_confirmations ?? {};
-        const confirmedCount = Object.values(confirmations).filter(Boolean).length;
+        const confirmedCount = checklist.filter((item: any, index: number) => {
+          const key = item?.key || `item_${index}`;
+          return confirmations[key] === true || item?.confirmed === true;
+        }).length;
         const deviceName = [result.device?.manufacturer, result.device?.family, result.device?.model || result.device?.manufacturer_model_number].filter(Boolean).join(' · ');
         const scannerName = scannerProfile
           ? [scannerProfile.nickname, scannerProfile.manufacturer, scannerProfile.model].filter(Boolean).join(' · ')
@@ -110,7 +130,7 @@ export default function HistoryScreen() {
               <View style={{ borderTopWidth: 1, borderTopColor: palette.line, paddingTop: 12, gap: 12 }}>
                 <Detail label="Decision" value={result.decision || result.reason} />
                 <Detail label="Next action" value={result.next_action} />
-                <Detail label="Verification basis" value={result.verification_basis} />
+                <Detail label="Verification basis" value={friendlyBasis(result.verification_basis)} />
                 <Detail label="Engine version" value={result.engine_version} />
                 <Detail label="Generator serial" value={row.generator_serial_number || result.generator_serial_number} />
 
@@ -119,7 +139,7 @@ export default function HistoryScreen() {
                     <Text selectable style={{ color: palette.muted, fontSize: 11, fontWeight: '800', letterSpacing: 0.3 }}>EXACT COMPONENTS</Text>
                     {components.map((item: any, index: number) => (
                       <Text key={`${row.id}-component-${index}`} selectable style={{ color: palette.text, fontSize: 13, lineHeight: 18 }}>
-                        {item.slot ? `${item.slot}: ` : ''}{item.component?.model || item.result?.component?.model || 'Component recorded'}
+                        {item.slot ? `${item.slot.replaceAll('_', ' ')}: ` : ''}{item.component?.model || item.result?.component?.model || 'Component recorded'}
                       </Text>
                     ))}
                   </View>
@@ -140,16 +160,16 @@ export default function HistoryScreen() {
                 ) : null}
 
                 {source ? (
-                  <View style={{ gap: 5 }}>
+                  <View style={{ gap: 7 }}>
                     <Text selectable style={{ color: palette.muted, fontSize: 11, fontWeight: '800', letterSpacing: 0.3 }}>MANUFACTURER SOURCE</Text>
                     <Text selectable style={{ color: palette.text, fontSize: 13, fontWeight: '700' }}>{source.title || 'Manufacturer MRI labeling'}</Text>
                     {source.document_version || source.source_version ? <Text selectable style={{ color: palette.muted, fontSize: 12 }}>Version: {source.document_version || source.source_version}</Text> : null}
-                    {source.source_url ? <Text selectable style={{ color: palette.brand, fontSize: 12, lineHeight: 17 }}>{source.source_url}</Text> : null}
+                    {source.source_url ? <Pressable onPress={() => Linking.openURL(source.source_url)} style={{ alignSelf: 'flex-start', borderRadius: radii.pill, backgroundColor: palette.brandSoft, paddingHorizontal: 12, paddingVertical: 8 }}><Text style={{ color: palette.brand, fontSize: 12, fontWeight: '900' }}>Open manufacturer source</Text></Pressable> : null}
                   </View>
                 ) : null}
 
                 {row.implant_metadata && Object.keys(row.implant_metadata).length ? (
-                  <Detail label="Implant metadata recorded" value={Object.entries(row.implant_metadata).map(([k, v]) => `${k}: ${String(v)}`).join(' · ')} />
+                  <Detail label="Implant metadata recorded" value={Object.entries(row.implant_metadata).map(([k, v]) => `${k.replaceAll('_', ' ')}: ${String(v)}`).join(' · ')} />
                 ) : null}
               </View>
             ) : null}
