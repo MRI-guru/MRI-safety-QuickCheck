@@ -121,7 +121,7 @@ export default function SettingsScreen() {
         <View style={{ height: 1, backgroundColor: palette.line }} />
         <ActionRow icon="envelope.fill" title="Send general beta feedback" detail="Use this for app bugs, crashes, navigation, sign-in, or workflow issues. App version and build number are added automatically." onPress={sendFeedback} />
         <View style={{ height: 1, backgroundColor: palette.line }} />
-        <Row icon="hand.raised.fill" title="Privacy" detail="Do not enter patient names, dates of birth, medical record numbers, accession numbers, images, or other patient-identifying information into beta feedback. Account authentication is handled through Supabase." />
+        <ActionRow icon="hand.raised.fill" title="Privacy Policy" detail="Review what account and app data the controlled beta uses, how account deletion works, and the prohibition on patient-identifying information." onPress={() => router.push('/privacy')} />
         <View style={{ height: 1, backgroundColor: palette.line }} />
         <Row icon="cross.case.fill" title="Clinical use" detail="Beta testing does not replace manufacturer MRI labeling, institutional policy, or qualified MRI personnel review. Unknown or incomplete implant configurations must remain unresolved until verified." />
       </View>
