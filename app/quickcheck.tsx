@@ -6,46 +6,418 @@ import { supabase } from '@/lib/supabase';
 import { palette, radii } from '@/lib/theme';
 import { StatusCard } from '@/components/status-card';
 
-type ScannerOption={id:string;manufacturer:string;model:string;field_strength_t:number}; type ScannerProfile=ScannerOption&{nickname?:string|null;is_default?:boolean;generic_scanner_model_id?:string|null};
-type DeviceOption={id:string;manufacturer?:string;model?:string;family?:string;device_type?:string;favorited_at?:string;last_used_at?:string;use_count?:number}; type ComponentOption={id:string;model?:string;component_type?:string}; type SelectedComponent=ComponentOption&{slot:string};
-type ChecklistItem={key?:string;label?:string;requirement?:string;confirmed?:boolean}; type QuestionOption={value:string;label:string}; type DeviceQuestion={key:string;label:string;type:'boolean'|'choice'|'text'|'number'|'serial';required_for_exact_check?:boolean;required_when_shown?:boolean;required_for_model?:string|null;danger_if_false?:boolean;help?:string|null;show_when?:Record<string,unknown>;options?:QuestionOption[]};
-type GuidanceCondition={id:string;mr_status?:string;field_strength_min_t?:number|null;field_strength_max_t?:number|null;scan_region?:string|null;max_spatial_gradient_g_cm?:number|null;max_slew_rate_t_m_s?:number|null;max_whole_body_sar_w_kg?:number|null;max_head_sar_w_kg?:number|null;max_b1_rms_ut?:number|null;coil_requirements?:string|null;operating_mode?:string|null;positioning_requirements?:string|null;programming_requirements?:string|null;monitoring_requirements?:string|null;lead_requirements?:string|null;other_conditions?:string|null;matches_selected_scanner?:boolean|null;source?:{title?:string;source_url?:string;document_version?:string;effective_date?:string}};
-const SCAN_REGIONS=['Head','Brain','C-spine','T-spine','L-spine','Chest','Abdomen','Pelvis','Upper extremity','Lower extremity','Full body'];
-const COIL_TYPES=[['receive_only','Receive-only RF coil'],['transmit_receive','Transmit / receive (T/R) RF coil'],['body_transmit_receive_only','Body transmit + receive-only coil'],['body_transmit_receive','Body transmit / receive coil']] as const;
-const DEVICE_CATEGORIES=[['Pain Pump','pain pump'],['SCS','SCS'],['DBS','DBS'],['SNM','SNM'],['VNS','VNS'],['Pacemaker','pacemaker'],['ICD / Defib','ICD'],['Loop Recorder','loop recorder']] as const; const STANDARD_EXACT_BASES=new Set(['generator_specific_manufacturer_eligibility','manufacturer_verified_component_set','preverified_exact_system','cardiac_componentless_manufacturer_labeling']);
-function SectionTitle({step,title,detail}:{step:string;title:string;detail:string}){return <View style={{gap:4}}><Text style={{color:palette.brand,fontSize:12,fontWeight:'800',letterSpacing:.6}}>{step}</Text><Text style={{color:palette.text,fontSize:21,fontWeight:'800'}}>{title}</Text><Text style={{color:palette.muted,fontSize:14,lineHeight:20}}>{detail}</Text></View>}; function SearchField({value,onChangeText,placeholder,onSubmit}:{value:string;onChangeText:(v:string)=>void;placeholder:string;onSubmit:()=>void}){return <View style={{flexDirection:'row',alignItems:'center',gap:10,backgroundColor:palette.surface,borderWidth:1,borderColor:palette.line,borderRadius:radii.md,paddingHorizontal:14}}><Image source="sf:magnifyingglass" style={{width:18,height:18}} tintColor={palette.muted}/><TextInput value={value} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor={palette.muted} returnKeyType="search" autoCorrect autoCapitalize="none" onSubmitEditing={()=>{Keyboard.dismiss();onSubmit()}} style={{flex:1,height:50,color:palette.text,fontSize:16}}/></View>}; function Metric({label,value}:{label:string;value?:string|number|null}){if(value===undefined||value===null||value==='')return null;return <View style={{flex:1,minWidth:140,backgroundColor:palette.bg,borderRadius:radii.sm,padding:11,gap:2}}><Text style={{color:palette.muted,fontSize:11,fontWeight:'800'}}>{label}</Text><Text selectable style={{color:palette.text,fontSize:14,fontWeight:'800'}}>{String(value)}</Text></View>}
-export default function QuickCheckScreen(){
- const[profiles,setProfiles]=useState<ScannerProfile[]>([]),[scanner,setScanner]=useState<ScannerOption|null>(null),[scannerProfileId,setScannerProfileId]=useState<string|null>(null),[showScannerPicker,setShowScannerPicker]=useState(false),[deviceSearch,setDeviceSearch]=useState(''),[devices,setDevices]=useState<DeviceOption[]>([]),[device,setDevice]=useState<DeviceOption|null>(null),[favorites,setFavorites]=useState<DeviceOption[]>([]),[recents,setRecents]=useState<DeviceOption[]>([]),[componentSearch,setComponentSearch]=useState(''),[components,setComponents]=useState<ComponentOption[]>([]),[selectedComponents,setSelectedComponents]=useState<SelectedComponent[]>([]),[scanRegion,setScanRegion]=useState(''),[showRegionPicker,setShowRegionPicker]=useState(false),[coilType,setCoilType]=useState(''),[showCoilPicker,setShowCoilPicker]=useState(false),[serialNumber,setSerialNumber]=useState(''),[result,setResult]=useState<any>(null),[busy,setBusy]=useState(false),[confirmations,setConfirmations]=useState<Record<string,boolean>>({}),[deviceQuestions,setDeviceQuestions]=useState<DeviceQuestion[]>([]),[questionAnswers,setQuestionAnswers]=useState<Record<string,any>>({}),[allowExactWithoutComponents,setAllowExactWithoutComponents]=useState(false),[scanDetails,setScanDetails]=useState<any>(null),[examContext,setExamContext]=useState<any>(null);
- useEffect(()=>{(async()=>{const[{data:profileData},{data:favoriteData},{data:recentData}]=await Promise.all([supabase.rpc('quickcheck_list_scanner_profiles'),supabase.rpc('quickcheck_list_favorite_devices'),supabase.rpc('quickcheck_list_recent_devices',{p_limit:6})]);const rows=(profileData??[])as ScannerProfile[];setProfiles(rows);setFavorites((favoriteData??[])as DeviceOption[]);setRecents((recentData??[])as DeviceOption[]);const d=rows.find(x=>x.is_default);if(d){setScanner({id:d.generic_scanner_model_id||d.id,manufacturer:d.manufacturer,model:d.model,field_strength_t:d.field_strength_t});setScannerProfileId(d.id)}})()},[]);
- useEffect(()=>{let live=true;(async()=>{if(!device){setScanDetails(null);return}const{data,error}=await supabase.rpc('quickcheck_get_optional_scan_details',{p_device_id:device.id,p_scanner_strength_t:scanner?.field_strength_t??null});if(live)setScanDetails(error?null:data)})();return()=>{live=false}},[device?.id,scanner?.field_strength_t]);
- useEffect(()=>{let live=true;(async()=>{if(!device){setExamContext(null);return}const{data,error}=await supabase.rpc('quickcheck_evaluate_exam_context',{p_device_id:device.id,p_scanner_strength_t:scanner?.field_strength_t??null,p_scan_region:scanRegion.trim()||null,p_coil_type:coilType||null});if(live)setExamContext(error?null:data)})();return()=>{live=false}},[device?.id,scanner?.field_strength_t,scanRegion,coilType]);
- const favoriteIds=useMemo(()=>new Set(favorites.map(x=>x.id)),[favorites]),recentUnpinned=useMemo(()=>recents.filter(x=>!favoriteIds.has(x.id)),[recents,favoriteIds]),tone=useMemo(()=>result?.status==='safe'?'safe':result?.status==='conditional'||result?.status==='guidance'?'conditional':result?.status==='unsafe'||result?.status==='not_cleared'?'danger':'unknown',[result]); const conditions:GuidanceCondition[]=Array.isArray(result?.conditions)?result.conditions:[],checklist:ChecklistItem[]=Array.isArray(result?.condition_checklist)?result.condition_checklist:[]; const allChecklistConfirmed=checklist.length>0&&checklist.every((x,i)=>confirmations[x.key||`item_${i}`]); const bodyPartRelevant=!!scanDetails?.body_part_relevant,coilRelevant=!!scanDetails?.coil_type_relevant,examContextConflict=examContext?.overall_status==='conflict',examContextNeedsInfo=examContext?.overall_status==='more_info';
- function questionVisible(q:DeviceQuestion){if(!q.show_when)return true;return Object.entries(q.show_when).every(([k,v])=>questionAnswers[k]===v)} function questionRequired(q:DeviceQuestion){return !!q.required_for_exact_check||!!q.required_when_shown||(!!q.required_for_model&&q.required_for_model===device?.model)} const visibleQuestions=deviceQuestions.filter(questionVisible); const missingRequired=visibleQuestions.filter(q=>{if(!questionRequired(q))return false;const v=questionAnswers[q.key];return v===undefined||v===null||v==='' }); const dangerousNo=visibleQuestions.find(q=>q.danger_if_false&&questionAnswers[q.key]===false); const canRunExact=!!scanner&&!!scanRegion&&(selectedComponents.length>0||allowExactWithoutComponents);
- async function refreshFavorites(){const{data,error}=await supabase.rpc('quickcheck_list_favorite_devices');if(!error)setFavorites((data??[])as DeviceOption[])} async function refreshRecents(){const{data,error}=await supabase.rpc('quickcheck_list_recent_devices',{p_limit:6});if(!error)setRecents((data??[])as DeviceOption[])} async function toggleFavorite(item:DeviceOption){const next=!favoriteIds.has(item.id);const{error}=await supabase.rpc('quickcheck_set_device_favorite',{p_device_id:item.id,p_favorite:next});if(error)return setResult({status:'unknown',display_status:'PIN ERROR',decision:error.message});await Haptics.selectionAsync();await refreshFavorites()}
- async function doDeviceSearch(term:string){Keyboard.dismiss();setBusy(true);const{data,error}=await supabase.rpc('quickcheck_search_devices',{p_search:term.trim()});setBusy(false);if(error)return setResult({status:'unknown',display_status:'DEVICE SEARCH ERROR',decision:error.message});setDevices(((data??[])as DeviceOption[]).slice(0,20))} async function searchDevices(){await doDeviceSearch(deviceSearch)} async function quickCategory(term:string){setDeviceSearch(term);setDevice(null);setResult(null);setSelectedComponents([]);setDeviceQuestions([]);setQuestionAnswers({});setAllowExactWithoutComponents(false);setScanRegion('');setCoilType('');setScanDetails(null);setExamContext(null);await Haptics.selectionAsync();await doDeviceSearch(term)}
- async function searchComponents(){Keyboard.dismiss();if(!device)return;setBusy(true);const{data,error}=await supabase.rpc('quickcheck_search_components',{p_device_id:device.id,p_search:componentSearch.trim()});setBusy(false);if(error)return setResult({status:'unknown',display_status:'COMPONENT SEARCH ERROR',decision:error.message});setComponents(((data??[])as ComponentOption[]).slice(0,30))} function chooseProfile(p:ScannerProfile){setScanner({id:p.generic_scanner_model_id||p.id,manufacturer:p.manufacturer,model:p.model,field_strength_t:p.field_strength_t});setScannerProfileId(p.id);setShowScannerPicker(false);setResult(null);setConfirmations({});setExamContext(null)}
- async function loadGuidance(selected:DeviceOption,selectedRegion=scanRegion){setBusy(true);setConfirmations({});const response=await supabase.rpc('quickcheck_get_device_guidance',{p_device_id:selected.id,p_scanner_strength_t:scanner?.field_strength_t??null,p_scan_region:selectedRegion.trim()||null});setBusy(false);setResult(response.error?{status:'unknown',display_status:'GUIDANCE ERROR',decision:response.error.message}:response.data)} async function loadDeviceQuestions(selected:DeviceOption){const{data,error}=await supabase.rpc('quickcheck_get_device_questions',{p_device_id:selected.id});if(error){setDeviceQuestions([]);setAllowExactWithoutComponents(false);return}setDeviceQuestions(Array.isArray(data?.questions)?data.questions:[]);setAllowExactWithoutComponents(Boolean(data?.exact_check_without_components))} async function selectDevice(item:DeviceOption){setDevice(item);setSelectedComponents([]);setComponents([]);setQuestionAnswers({});setDeviceQuestions([]);setAllowExactWithoutComponents(false);setScanRegion('');setCoilType('');setScanDetails(null);setExamContext(null);await Promise.all([loadGuidance(item,''),loadDeviceQuestions(item),supabase.rpc('quickcheck_mark_recent_device',{p_device_id:item.id})]);await refreshRecents()}
- function setAnswer(q:DeviceQuestion,value:any){setQuestionAnswers(a=>{const next={...a,[q.key]:value};for(const child of deviceQuestions){if(child.show_when&&Object.keys(child.show_when).includes(q.key)&&child.show_when[q.key]!==value)delete next[child.key]}return next});if(q.type==='serial')setSerialNumber(String(value??''))}
- async function runCheck(){Keyboard.dismiss();if(!device)return;if(canRunExact&&missingRequired.length){setResult({status:'unknown',display_status:'MORE INFORMATION REQUIRED',decision:`Complete: ${missingRequired.map(q=>q.label).join(', ')}.`});return}if(canRunExact&&dangerousNo){setResult({status:'not_cleared',display_status:'DO NOT ENTER MRI — REQUIRED PREPARATION NOT CONFIRMED',decision:`${dangerousNo.label} Manufacturer-required preparation is not confirmed.`});await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);return}setBusy(true);setConfirmations({});await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);if(canRunExact&&scanner){const contextResponse=await supabase.rpc('quickcheck_evaluate_exam_context',{p_device_id:device.id,p_scanner_strength_t:scanner.field_strength_t,p_scan_region:scanRegion.trim()||null,p_coil_type:coilType||null});if(contextResponse.error){setBusy(false);setResult((c:any)=>({...c,status:'unknown',display_status:'EXAM CONTEXT CHECK ERROR',decision:contextResponse.error.message,exact_system_verified:false}));return}const contextData=contextResponse.data;setExamContext(contextData);if(contextData?.overall_status==='conflict'){setBusy(false);setResult((c:any)=>({...c,status:'not_cleared',display_status:'NOT CLEARED FOR SELECTED EXAM',decision:contextData.decision,exact_system_verified:false,exam_context:contextData}));await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);return}if(contextData?.overall_status==='more_info'){setBusy(false);setResult((c:any)=>({...c,status:'unknown',display_status:'MORE INFORMATION REQUIRED — EXAM CONTEXT',decision:contextData.decision,exact_system_verified:false,exam_context:contextData}));return}}let response:any;if(canRunExact){const metadata:Record<string,any>={...questionAnswers,body_part:scanRegion,...(coilType?{coil_type:coilType}:{})};const serial=String(questionAnswers.generator_serial_number??serialNumber).trim()||null;delete metadata.generator_serial_number;const args:any={p_device_id:device.id,p_components:selectedComponents.map((x,i)=>({component_id:x.id,slot:x.slot.trim()||`component_${i+1}`})),p_scanner_model_id:scanner!.id,p_scanner_strength_t:scanner!.field_strength_t,p_scan_region:scanRegion,p_generator_serial_number:serial,p_implant_metadata:metadata};if(scannerProfileId)args.p_scanner_profile_id=scannerProfileId;response=await supabase.rpc('quickcheck_run_exact_system_check_v4',args)}else response=await supabase.rpc('quickcheck_get_device_guidance',{p_device_id:device.id,p_scanner_strength_t:scanner?.field_strength_t??null,p_scan_region:scanRegion.trim()||null});setBusy(false);setResult(response.error?{status:'unknown',display_status:'QUICKCHECK ERROR',decision:response.error.message}:response.data)}
- async function verifyChecklist(){if(!device||!scanner||!allChecklistConfirmed||!STANDARD_EXACT_BASES.has(result?.verification_basis))return;setBusy(true);const response=await supabase.rpc('quickcheck_evaluate_condition_confirmation',{p_device_id:device.id,p_scanner_model_id:scanner.id,p_scanner_strength_t:scanner.field_strength_t,p_scan_region:scanRegion,p_confirmations:confirmations});setBusy(false);if(response.error)return setResult((c:any)=>({...c,decision:response.error.message}));setResult((c:any)=>({...c,...response.data,exact_system_verified:true}));await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)} const headline=result?.display_status||(result?.status==='guidance'?'MANUFACTURER MRI LABELING':'MRI LABELING RESULT');
- return <ScrollView contentInsetAdjustmentBehavior="automatic" keyboardDismissMode="interactive" keyboardShouldPersistTaps="handled" contentContainerStyle={{padding:16,paddingBottom:60,gap:22}}>
- <SectionTitle step="OPTIONAL" title="Your scanner" detail="Your default saved scanner is selected automatically. Choose Scanner unknown when you only need the manufacturer's labeling."/><Pressable onPress={()=>setShowScannerPicker(v=>!v)} style={{backgroundColor:palette.surface,borderWidth:1.5,borderColor:scanner?palette.brand:palette.line,borderRadius:radii.md,padding:15,flexDirection:'row',alignItems:'center',gap:12}}><Image source="sf:wave.3.right.circle.fill" style={{width:25,height:25}} tintColor={palette.brand}/><View style={{flex:1}}><Text style={{color:palette.text,fontWeight:'800',fontSize:16}}>{scanner?`${scanner.manufacturer} ${scanner.model}`:'Scanner unknown / guidelines only'}</Text><Text style={{color:palette.muted,fontSize:13}}>{scanner?`${scanner.field_strength_t}T · Saved scanner`:'Manufacturer labeling will still be shown'}</Text></View><Text style={{color:palette.brand,fontWeight:'900'}}>Change</Text></Pressable>{showScannerPicker?<View style={{gap:8}}><Pressable onPress={()=>{setScanner(null);setScannerProfileId(null);setShowScannerPicker(false);setExamContext(null);if(device)loadGuidance(device)}} style={{padding:14,borderRadius:radii.md,borderWidth:1,borderColor:palette.line,backgroundColor:palette.surface}}><Text style={{color:palette.text,fontWeight:'800'}}>Scanner unknown / guidelines only</Text></Pressable>{profiles.map(p=><Pressable key={p.id} onPress={()=>chooseProfile(p)} style={{padding:14,borderRadius:radii.md,borderWidth:1,borderColor:p.id===scannerProfileId?palette.brand:palette.line,backgroundColor:p.id===scannerProfileId?palette.brandSoft:palette.surface}}><Text style={{color:palette.text,fontWeight:'800'}}>{p.nickname||`${p.manufacturer} ${p.model}`}{p.is_default?' · DEFAULT':''}</Text><Text style={{color:palette.muted,fontSize:13}}>{p.manufacturer} {p.model} · {p.field_strength_t}T</Text></Pressable>)}</View>:null}
- <View style={{height:1,backgroundColor:palette.line}}/><SectionTitle step="REQUIRED" title="Identify implant" detail="Search by name, manufacturer, model, abbreviation, or common clinical term. Pin common implants or reopen recently used implants with one tap."/>
- {favorites.length>0?<View style={{gap:8}}><Text style={{color:palette.brand,fontSize:12,fontWeight:'900'}}>📌 PINNED IMPLANTS</Text><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:9,paddingRight:12}}>{favorites.map(item=><View key={item.id} style={{width:220,backgroundColor:palette.brandSoft,borderWidth:1,borderColor:palette.brand,borderRadius:radii.md,padding:12,gap:8}}><Pressable onPress={()=>selectDevice(item)}><Text numberOfLines={1} style={{color:palette.text,fontWeight:'900'}}>{item.manufacturer} · {item.model}</Text><Text numberOfLines={1} style={{color:palette.muted,fontSize:12}}>{item.family??item.device_type}</Text></Pressable><Pressable onPress={()=>toggleFavorite(item)}><Text style={{color:palette.brand,fontSize:12,fontWeight:'900'}}>Unpin</Text></Pressable></View>)}</ScrollView></View>:null}{recentUnpinned.length>0?<View style={{gap:8}}><Text style={{color:palette.muted,fontSize:12,fontWeight:'900'}}>RECENTLY USED</Text><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:9,paddingRight:12}}>{recentUnpinned.map(item=><View key={item.id} style={{width:220,backgroundColor:palette.surface,borderWidth:1,borderColor:palette.line,borderRadius:radii.md,padding:12,gap:8}}><Pressable onPress={()=>selectDevice(item)}><Text numberOfLines={1} style={{color:palette.text,fontWeight:'900'}}>{item.manufacturer} · {item.model}</Text><Text numberOfLines={1} style={{color:palette.muted,fontSize:12}}>{item.family??item.device_type}</Text></Pressable><Pressable onPress={()=>toggleFavorite(item)}><Text style={{color:palette.brand,fontSize:12,fontWeight:'900'}}>Pin</Text></Pressable></View>)}</ScrollView></View>:null}
- <View style={{gap:8}}><Text style={{color:palette.muted,fontSize:12,fontWeight:'800'}}>QUICK CATEGORIES</Text><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:8,paddingRight:12}}>{DEVICE_CATEGORIES.map(([label,term])=><Pressable key={label} disabled={busy} onPress={()=>quickCategory(term)} style={{paddingHorizontal:13,paddingVertical:10,borderRadius:radii.pill,borderWidth:1,borderColor:deviceSearch.toLowerCase()===term.toLowerCase()?palette.brand:palette.line,backgroundColor:deviceSearch.toLowerCase()===term.toLowerCase()?palette.brandSoft:palette.surface}}><Text style={{color:deviceSearch.toLowerCase()===term.toLowerCase()?palette.brand:palette.text,fontWeight:'800'}}>{label}</Text></Pressable>)}</ScrollView></View><SearchField value={deviceSearch} onChangeText={setDeviceSearch} placeholder="Pain pump, SCS, pacemaker, 97810, InterStim…" onSubmit={searchDevices}/><Pressable disabled={busy} onPress={searchDevices} style={{alignSelf:'flex-start',backgroundColor:palette.brandSoft,paddingHorizontal:14,paddingVertical:9,borderRadius:radii.pill}}><Text style={{color:palette.brand,fontWeight:'800'}}>Search devices</Text></Pressable>{busy?<ActivityIndicator color={palette.brand}/>:null}{devices.map(item=><View key={item.id} style={{backgroundColor:device?.id===item.id?palette.brandSoft:palette.surface,borderWidth:1.5,borderColor:device?.id===item.id?palette.brand:palette.line,borderRadius:radii.md,padding:13,flexDirection:'row',alignItems:'center',gap:10}}><Pressable onPress={()=>selectDevice(item)} style={{flex:1}}><Text style={{color:palette.text,fontSize:16,fontWeight:'800'}}>{item.manufacturer} · {item.model}</Text><Text style={{color:palette.muted,fontSize:13}}>{item.family??item.device_type}</Text></Pressable><Pressable onPress={()=>toggleFavorite(item)} style={{width:42,height:42,alignItems:'center',justifyContent:'center'}}><Text style={{color:palette.brand,fontSize:20}}>{favoriteIds.has(item.id)?'📌':'＋'}</Text></Pressable></View>)}
- {result?<View style={{gap:12}}><View style={{backgroundColor:tone==='danger'?palette.danger:tone==='safe'?palette.safe:palette.surface,borderRadius:radii.lg,padding:18,gap:8,borderWidth:tone==='conditional'||tone==='unknown'?1:0,borderColor:tone==='conditional'?palette.conditional:palette.line}}><Text style={{color:tone==='danger'||tone==='safe'?palette.white:palette.muted,fontSize:12,fontWeight:'900'}}>{result.guidance_mode?'MANUFACTURER MRI LABELING':'EXACT SYSTEM QUICKCHECK'}</Text><Text selectable style={{color:tone==='danger'||tone==='safe'?palette.white:palette.text,fontSize:24,fontWeight:'900'}}>{headline}</Text><Text selectable style={{color:tone==='danger'||tone==='safe'?palette.white:palette.muted,fontSize:13,lineHeight:19}}>{result.decision??result.reason??result.next_action}</Text></View><View style={{flexDirection:'row',flexWrap:'wrap',gap:8}}><Metric label="Selected scanner" value={scanner?`${scanner.field_strength_t}T`:'Unknown'}/><Metric label="Body part / scan region" value={scanRegion||'Not selected'}/><Metric label="Coil type" value={coilType?COIL_TYPES.find(x=>x[0]===coilType)?.[1]:'Not selected'}/></View></View>:null}
- {conditions.map((c,i)=><View key={c.id||String(i)} style={{backgroundColor:palette.surface,borderRadius:radii.lg,borderWidth:1.5,borderColor:c.matches_selected_scanner===false?palette.danger:palette.line,padding:16,gap:10}}><Text style={{color:palette.brand,fontSize:11,fontWeight:'900'}}>MANUFACTURER CONDITION</Text><Text style={{color:palette.text,fontSize:19,fontWeight:'900'}}>{c.field_strength_min_t===c.field_strength_max_t?`${c.field_strength_min_t}T`:`${c.field_strength_min_t??'?'}–${c.field_strength_max_t??'?'}T`} · {c.scan_region??'Manufacturer-defined region'}</Text><View style={{flexDirection:'row',flexWrap:'wrap',gap:8}}><Metric label="Whole-body SAR" value={c.max_whole_body_sar_w_kg!=null?`≤ ${c.max_whole_body_sar_w_kg} W/kg`:null}/><Metric label="Head SAR" value={c.max_head_sar_w_kg!=null?`≤ ${c.max_head_sar_w_kg} W/kg`:null}/><Metric label="B1+rms" value={c.max_b1_rms_ut!=null?`≤ ${c.max_b1_rms_ut} µT`:null}/></View>{[['Operating mode',c.operating_mode],['Coil',c.coil_requirements],['Positioning',c.positioning_requirements],['MRI mode/programming',c.programming_requirements],['Monitoring',c.monitoring_requirements],['Components/leads',c.lead_requirements],['Other conditions',c.other_conditions]].map(([l,v])=>v?<Text key={l as string} selectable style={{color:palette.text,fontSize:13,lineHeight:19}}><Text style={{fontWeight:'900'}}>{l}: </Text>{v}</Text>:null)}{c.source?.source_url?<Pressable onPress={()=>Linking.openURL(c.source!.source_url!)} style={{alignSelf:'flex-start',backgroundColor:palette.brand,paddingHorizontal:14,paddingVertical:10,borderRadius:radii.pill}}><Text style={{color:palette.white,fontWeight:'900'}}>Open Manufacturer MRI Instructions</Text></Pressable>:null}</View>)}
- {deviceQuestions.length>0?<View style={{gap:12,backgroundColor:palette.surface,borderRadius:radii.lg,borderWidth:1.5,borderColor:dangerousNo?palette.danger:palette.line,padding:16}}><SectionTitle step="DEVICE-SPECIFIC" title="Implant screening questions" detail="These questions come from the selected implant pathway. Manufacturer labeling remains available even if you do not know every answer."/>{visibleQuestions.map(q=><View key={q.key} style={{gap:7}}><Text style={{color:palette.text,fontWeight:'900'}}>{q.label}{questionRequired(q)?' *':''}</Text>{q.type==='boolean'?<View style={{flexDirection:'row',gap:8}}>{[true,false].map(v=><Pressable key={String(v)} onPress={()=>setAnswer(q,v)} style={{flex:1,padding:12,borderRadius:radii.md,borderWidth:1.5,borderColor:questionAnswers[q.key]===v?(q.danger_if_false&&!v?palette.danger:palette.brand):palette.line,backgroundColor:questionAnswers[q.key]===v?(q.danger_if_false&&!v?'#FFF0F0':palette.brandSoft):palette.bg,alignItems:'center'}}><Text style={{fontWeight:'900',color:questionAnswers[q.key]===v?(q.danger_if_false&&!v?palette.danger:palette.brand):palette.text}}>{v?'Yes':'No'}</Text></Pressable>)}</View>:q.type==='choice'?<View style={{gap:7}}>{(q.options??[]).map(o=><Pressable key={o.value} onPress={()=>setAnswer(q,o.value)} style={{padding:12,borderRadius:radii.md,borderWidth:1.5,borderColor:questionAnswers[q.key]===o.value?palette.brand:palette.line,backgroundColor:questionAnswers[q.key]===o.value?palette.brandSoft:palette.bg}}><Text style={{color:palette.text,fontWeight:'800'}}>{o.label}</Text></Pressable>)}</View>:<TextInput value={questionAnswers[q.key]===undefined?'':String(questionAnswers[q.key])} onChangeText={v=>setAnswer(q,q.type==='number'?(v===''?'':Number(v)):v)} keyboardType={q.type==='number'?'decimal-pad':'default'} autoCapitalize={q.type==='serial'?'characters':'sentences'} placeholder="Enter value" placeholderTextColor={palette.muted} style={{backgroundColor:palette.bg,borderWidth:1,borderColor:palette.line,borderRadius:radii.md,paddingHorizontal:13,height:48,color:palette.text}}/>}{q.help?<Text style={{color:q.danger_if_false?palette.danger:palette.muted,fontSize:12,lineHeight:17}}>{q.help}</Text>:null}</View>)}{missingRequired.length?<Text style={{color:palette.conditional,fontSize:12,fontWeight:'800'}}>Exact-system check still needs: {missingRequired.map(q=>q.label).join(', ')}</Text>:null}{dangerousNo?<Text style={{color:palette.danger,fontSize:13,fontWeight:'900'}}>MRI hard stop: required manufacturer preparation has not been confirmed.</Text>:null}</View>:null}
- {device&&allowExactWithoutComponents?<View style={{backgroundColor:palette.brandSoft,borderWidth:1,borderColor:palette.brand,borderRadius:radii.md,padding:13,gap:4}}><Text style={{color:palette.brand,fontSize:12,fontWeight:'900'}}>DEVICE-ONLY MRI PATHWAY</Text><Text style={{color:palette.text,fontWeight:'800'}}>{device.device_type?.toLowerCase().includes('monitor')?'No separate lead/component selection is required for this implanted cardiac monitor.':'No separate lead/component selection is required for this device pathway.'}</Text><Text style={{color:palette.muted,fontSize:12,lineHeight:17}}>QuickCheck still requires the selected scanner and every applicable manufacturer condition to be confirmed before showing conditions met.</Text></View>:null}
- {device&&!allowExactWithoutComponents?<><View style={{height:1,backgroundColor:palette.line}}/><SectionTitle step="OPTIONAL" title="Exact implanted components" detail="Manufacturer labeling remains visible if these are unknown. Add the complete implanted system when available to run exact-system verification."/><SearchField value={componentSearch} onChangeText={setComponentSearch} placeholder="Search lead, extension, electrode, catheter…" onSubmit={searchComponents}/><Pressable onPress={searchComponents} style={{alignSelf:'flex-start',backgroundColor:palette.brandSoft,paddingHorizontal:14,paddingVertical:9,borderRadius:radii.pill}}><Text style={{color:palette.brand,fontWeight:'800'}}>Find components</Text></Pressable>{components.map(item=><Pressable key={item.id} onPress={()=>!selectedComponents.some(x=>x.id===item.id)&&setSelectedComponents(c=>[...c,{...item,slot:''}])} style={{backgroundColor:palette.surface,borderWidth:1,borderColor:palette.line,borderRadius:radii.md,padding:14}}><Text style={{color:palette.text,fontWeight:'800'}}>{item.model}</Text><Text style={{color:palette.muted,fontSize:13}}>{item.component_type}</Text></Pressable>)}{selectedComponents.map((item,i)=><View key={`${item.id}-${i}`} style={{backgroundColor:palette.brandSoft,borderRadius:radii.md,padding:14,gap:8}}><Text style={{color:palette.text,fontWeight:'800'}}>{item.model}</Text><Pressable onPress={()=>setSelectedComponents(c=>c.filter((_,j)=>j!==i))}><Text style={{color:palette.danger,fontSize:12,fontWeight:'800'}}>Remove component</Text></Pressable></View>)}</>:null}
- <View style={{height:1,backgroundColor:palette.line}}/><SectionTitle step="OPTIONAL SCAN DETAILS" title="Body part and RF coil" detail={bodyPartRelevant||coilRelevant?'This implant has manufacturer MRI labeling that depends on the selected exam details. Missing or unverified details remain fail-closed for exact eligibility.':'These selections are optional exam context. Manufacturer labeling remains visible when they are unknown.'}/>
- {device&&(bodyPartRelevant||coilRelevant)?<View style={{gap:8,backgroundColor:palette.surface,borderRadius:radii.md,borderWidth:1.5,borderColor:palette.conditional,padding:13}}><Text style={{color:palette.conditional,fontSize:11,fontWeight:'900'}}>MANUFACTURER EXAM-DETAIL REQUIREMENTS</Text>{bodyPartRelevant?<><Text style={{color:palette.text,fontWeight:'900'}}>Body part affects MRI eligibility</Text><Text style={{color:palette.muted,fontSize:12,lineHeight:17}}>{scanDetails?.body_part_attention??'Manufacturer labeling varies by scan region/body part.'}</Text>{Array.isArray(scanDetails?.scan_regions)&&scanDetails.scan_regions.length?<Text selectable style={{color:palette.text,fontSize:12,lineHeight:17}}><Text style={{fontWeight:'900'}}>Loaded manufacturer region wording: </Text>{scanDetails.scan_regions.join(' · ')}</Text>:null}</>:null}{coilRelevant?<><Text style={{color:palette.text,fontWeight:'900'}}>RF coil affects MRI eligibility</Text><Text style={{color:palette.muted,fontSize:12,lineHeight:17}}>{scanDetails?.coil_attention??'Manufacturer labeling contains RF coil-specific conditions.'}</Text>{Array.isArray(scanDetails?.coil_requirements)?scanDetails.coil_requirements.map((x:string,i:number)=><Text key={`${x}-${i}`} selectable style={{color:palette.text,fontSize:12,lineHeight:17}}>• {x}</Text>):null}</>:null}</View>:null}
- <Pressable onPress={()=>setShowRegionPicker(v=>!v)} style={{backgroundColor:palette.surface,borderWidth:1.5,borderColor:examContext?.body_part_status==='conflict'?palette.danger:bodyPartRelevant&&!scanRegion?palette.conditional:scanRegion?palette.brand:palette.line,borderRadius:radii.md,padding:14,flexDirection:'row',justifyContent:'space-between',alignItems:'center',gap:10}}><View style={{flex:1,gap:2}}><Text style={{color:palette.text,fontSize:16,fontWeight:'800'}}>{scanRegion||'Body part not selected'}</Text>{bodyPartRelevant?<Text style={{color:scanRegion?palette.brand:palette.conditional,fontSize:11,fontWeight:'900'}}>AFFECTS MRI ELIGIBILITY · NEEDED FOR EXACT EXAM CHECK</Text>:null}</View><Text style={{color:palette.brand,fontWeight:'900'}}>Choose</Text></Pressable>{showRegionPicker?<View style={{flexDirection:'row',flexWrap:'wrap',gap:8}}><Pressable onPress={()=>{setScanRegion('');setShowRegionPicker(false);if(device)loadGuidance(device,'')}} style={{paddingHorizontal:12,paddingVertical:10,borderRadius:radii.pill,borderWidth:1,borderColor:!scanRegion?palette.brand:palette.line}}><Text style={{color:palette.text,fontWeight:'800'}}>Unknown / not selected</Text></Pressable>{SCAN_REGIONS.map(region=><Pressable key={region} onPress={()=>{const n=region.toLowerCase();setScanRegion(n);setShowRegionPicker(false);if(device)loadGuidance(device,n)}} style={{paddingHorizontal:12,paddingVertical:10,borderRadius:radii.pill,borderWidth:1,borderColor:scanRegion===region.toLowerCase()?palette.brand:palette.line}}><Text style={{color:palette.text,fontWeight:'800'}}>{region}</Text></Pressable>)}</View>:null}
- <Pressable onPress={()=>setShowCoilPicker(v=>!v)} style={{backgroundColor:palette.surface,borderWidth:1.5,borderColor:examContext?.coil_status==='conflict'?palette.danger:coilRelevant&&!coilType?palette.conditional:coilType?palette.brand:palette.line,borderRadius:radii.md,padding:14,flexDirection:'row',justifyContent:'space-between',alignItems:'center',gap:10}}><View style={{flex:1,gap:2}}><Text style={{color:palette.text,fontSize:16,fontWeight:'800'}}>{coilType?COIL_TYPES.find(x=>x[0]===coilType)?.[1]:'RF coil not selected'}</Text>{coilRelevant?<Text style={{color:coilType?palette.brand:palette.conditional,fontSize:11,fontWeight:'900'}}>AFFECTS MRI ELIGIBILITY · REQUIRED TO RESOLVE COIL-SPECIFIC LABELING</Text>:null}</View><Text style={{color:palette.brand,fontWeight:'900'}}>Choose</Text></Pressable>{showCoilPicker?<View style={{gap:8}}><Pressable onPress={()=>{setCoilType('');setShowCoilPicker(false)}} style={{padding:12,borderRadius:radii.md,borderWidth:1,borderColor:!coilType?palette.brand:palette.line,backgroundColor:!coilType?palette.brandSoft:palette.surface}}><Text style={{color:palette.text,fontWeight:'800'}}>Unknown / not selected</Text></Pressable>{COIL_TYPES.map(([value,label])=><Pressable key={value} onPress={()=>{setCoilType(value);setShowCoilPicker(false)}} style={{padding:12,borderRadius:radii.md,borderWidth:1,borderColor:coilType===value?palette.brand:palette.line,backgroundColor:coilType===value?palette.brandSoft:palette.surface}}><Text style={{color:palette.text,fontWeight:'800'}}>{label}</Text></Pressable>)}</View>:null}
- {device&&(bodyPartRelevant||coilRelevant)&&examContext?<View style={{gap:5,backgroundColor:palette.surface,borderWidth:1.5,borderColor:examContextConflict?palette.danger:examContextNeedsInfo?palette.conditional:palette.brand,borderRadius:radii.md,padding:13}}><Text style={{color:examContextConflict?palette.danger:examContextNeedsInfo?palette.conditional:palette.brand,fontSize:11,fontWeight:'900'}}>{examContextConflict?'NOT CLEARED FOR SELECTED EXAM CONTEXT':examContextNeedsInfo?'EXAM CONTEXT NEEDS CONFIRMATION':'EXAM CONTEXT READY FOR REMAINING CHECKS'}</Text><Text style={{color:palette.text,fontSize:13,lineHeight:18}}>{examContext.decision}</Text><Text style={{color:palette.muted,fontSize:11,lineHeight:16}}>Body part: {examContext.body_part_status??'not applicable'} · RF coil: {examContext.coil_status??'not applicable'}. This exam-context result alone is not MRI clearance.</Text></View>:null}
- <Text style={{color:palette.muted,fontSize:12,lineHeight:17}}>Manufacturer body-part and RF-coil requirements remain authoritative. QuickCheck does not infer that an unknown or free-text condition is satisfied.</Text>{!deviceQuestions.some(q=>q.type==='serial')?<TextInput value={serialNumber} onChangeText={setSerialNumber} autoCapitalize="characters" placeholder="Generator serial number (optional)" placeholderTextColor={palette.muted} style={{backgroundColor:palette.surface,borderWidth:1,borderColor:palette.line,borderRadius:radii.md,paddingHorizontal:14,height:50,color:palette.text}}/>:null}
- <Pressable disabled={!device||busy} onPress={runCheck} style={{opacity:!device||busy?0.45:1,backgroundColor:palette.brand,minHeight:58,borderRadius:radii.md,alignItems:'center',justifyContent:'center'}}>{busy?<ActivityIndicator color={palette.white}/>:<Text style={{color:palette.white,fontSize:17,fontWeight:'900'}}>{canRunExact?'Run Exact MRI QuickCheck':'Refresh Manufacturer MRI Labeling'}</Text>}</Pressable>
- {checklist.length>0?<View style={{gap:10,backgroundColor:palette.surface,borderRadius:radii.lg,borderWidth:1,borderColor:palette.line,padding:16}}><Text style={{color:palette.brand,fontSize:11,fontWeight:'900'}}>CONDITIONS CHECKLIST</Text>{checklist.map((item,i)=>{const key=item.key||`item_${i}`,checked=!!confirmations[key];return <Pressable key={key} onPress={()=>setConfirmations(c=>({...c,[key]:!checked}))} style={{flexDirection:'row',gap:11,padding:12,borderRadius:radii.md,backgroundColor:checked?palette.brandSoft:palette.bg}}><View style={{flex:1,gap:2}}><Text style={{color:palette.text,fontWeight:'900'}}>{checked?'☑':'☐'} {item.label||'Manufacturer condition'}</Text>{item.requirement?<Text style={{color:palette.muted,fontSize:12,lineHeight:17}}>{item.requirement}</Text>:null}</View></Pressable>})}{allChecklistConfirmed&&!result?.guidance_mode&&STANDARD_EXACT_BASES.has(result?.verification_basis)?<Pressable disabled={busy} onPress={verifyChecklist} style={{backgroundColor:palette.safe,minHeight:52,borderRadius:radii.md,alignItems:'center',justifyContent:'center'}}><Text style={{color:palette.white,fontWeight:'900'}}>Verify All Confirmed Conditions</Text></Pressable>:null}</View>:null}{result&&!conditions.length?<StatusCard tone={tone as any} eyebrow={result.display_status??'Result'} title={result.display_status??'MRI result'} detail={result.decision??result.reason??result.next_action}/>:null}
- </ScrollView>;
+type ScannerOption = { id: string; manufacturer: string; model: string; field_strength_t: number };
+type ScannerProfile = ScannerOption & { nickname?: string | null; is_default?: boolean; generic_scanner_model_id?: string | null };
+type DeviceOption = { id: string; manufacturer?: string; model?: string; family?: string; device_type?: string; favorited_at?: string; last_used_at?: string; use_count?: number };
+type ComponentOption = { id: string; model?: string; component_type?: string };
+type SelectedComponent = ComponentOption & { slot: string };
+type ChecklistItem = { key?: string; label?: string; requirement?: string; confirmed?: boolean };
+type QuestionOption = { value: string; label: string };
+type DeviceQuestion = { key: string; label: string; type: 'boolean' | 'choice' | 'text' | 'number' | 'serial'; required_for_exact_check?: boolean; required_when_shown?: boolean; required_for_model?: string | null; danger_if_false?: boolean; help?: string | null; show_when?: Record<string, unknown>; options?: QuestionOption[] };
+type GuidanceCondition = { id: string; mr_status?: string; field_strength_min_t?: number | null; field_strength_max_t?: number | null; field_strength_text?: string | null; scan_region?: string | null; max_spatial_gradient_g_cm?: number | null; max_slew_rate_t_m_s?: number | null; max_whole_body_sar_w_kg?: number | null; max_head_sar_w_kg?: number | null; max_b1_rms_ut?: number | null; coil_requirements?: string | null; operating_mode?: string | null; positioning_requirements?: string | null; programming_requirements?: string | null; monitoring_requirements?: string | null; lead_requirements?: string | null; other_conditions?: string | null; matches_selected_scanner?: boolean | null; source?: { title?: string; source_url?: string; document_version?: string; effective_date?: string } };
+
+const SCAN_REGIONS = ['Head', 'Brain', 'C-spine', 'T-spine', 'L-spine', 'Chest', 'Abdomen', 'Pelvis', 'Upper extremity', 'Lower extremity', 'Full body'];
+const COIL_TYPES = [
+  ['receive_only', 'Receive-only RF coil'],
+  ['transmit_receive', 'Transmit / receive (T/R) RF coil'],
+  ['body_transmit_receive_only', 'Body transmit + receive-only coil'],
+  ['body_transmit_receive', 'Body transmit / receive coil']
+] as const;
+const DEVICE_CATEGORIES = [['Pain Pump', 'pain pump'], ['SCS', 'SCS'], ['DBS', 'DBS'], ['SNM', 'SNM'], ['VNS', 'VNS'], ['Pacemaker', 'pacemaker'], ['ICD / Defib', 'ICD'], ['Loop Recorder', 'loop recorder']] as const;
+const STANDARD_EXACT_BASES = new Set(['generator_specific_manufacturer_eligibility', 'manufacturer_verified_component_set', 'preverified_exact_system', 'cardiac_componentless_manufacturer_labeling']);
+
+function SectionTitle({ step, title, detail }: { step: string; title: string; detail: string }) {
+  return <View style={{ gap: 4 }}><Text style={{ color: palette.brand, fontSize: 12, fontWeight: '800', letterSpacing: 0.6 }}>{step}</Text><Text style={{ color: palette.text, fontSize: 21, fontWeight: '800' }}>{title}</Text><Text style={{ color: palette.muted, fontSize: 14, lineHeight: 20 }}>{detail}</Text></View>;
 }
 
+function SearchField({ value, onChangeText, placeholder, onSubmit }: { value: string; onChangeText: (v: string) => void; placeholder: string; onSubmit: () => void }) {
+  return <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, borderRadius: radii.md, paddingHorizontal: 14 }}><Image source="sf:magnifyingglass" style={{ width: 18, height: 18 }} tintColor={palette.muted} /><TextInput value={value} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor={palette.muted} returnKeyType="search" autoCorrect autoCapitalize="none" onSubmitEditing={() => { Keyboard.dismiss(); onSubmit(); }} style={{ flex: 1, height: 50, color: palette.text, fontSize: 16 }} /></View>;
+}
+
+function Metric({ label, value }: { label: string; value?: string | number | null }) {
+  if (value === undefined || value === null || value === '') return null;
+  return <View style={{ flex: 1, minWidth: 140, backgroundColor: palette.bg, borderRadius: radii.sm, padding: 11, gap: 2 }}><Text style={{ color: palette.muted, fontSize: 11, fontWeight: '800' }}>{label}</Text><Text selectable style={{ color: palette.text, fontSize: 14, fontWeight: '800' }}>{String(value)}</Text></View>;
+}
+
+function examStatusLabel(value?: string | null) {
+  if (!value || value === 'unknown') return 'not selected';
+  if (value === 'compatible') return 'compatible';
+  if (value === 'device_specific') return 'resolved in device-specific check';
+  if (value === 'recorded') return 'recorded';
+  if (value === 'manual_review') return 'manufacturer confirmation needed';
+  if (value === 'conflict') return 'not permitted';
+  if (value === 'not_applicable') return 'not applicable';
+  return value.replaceAll('_', ' ');
+}
+
+function fieldStrengthLabel(condition: GuidanceCondition) {
+  const min = condition.field_strength_min_t;
+  const max = condition.field_strength_max_t;
+  if (min == null && max == null) return condition.field_strength_text || 'Field strength per manufacturer labeling';
+  if (min != null && max != null && Number(min) === Number(max)) return `${min}T`;
+  if (min == null) return `≤ ${max}T`;
+  if (max == null) return `≥ ${min}T`;
+  return `${min}–${max}T`;
+}
+
+function statusBorder(status: string | undefined, selected: boolean, relevant: boolean) {
+  if (status === 'conflict') return palette.danger;
+  if (selected && (status === 'compatible' || status === 'device_specific')) return palette.safe;
+  if (relevant && (!selected || status === 'unknown' || status === 'manual_review')) return palette.conditional;
+  if (selected) return palette.brand;
+  return palette.line;
+}
+
+export default function QuickCheckScreen() {
+  const [profiles, setProfiles] = useState<ScannerProfile[]>([]);
+  const [scanner, setScanner] = useState<ScannerOption | null>(null);
+  const [scannerProfileId, setScannerProfileId] = useState<string | null>(null);
+  const [showScannerPicker, setShowScannerPicker] = useState(false);
+  const [deviceSearch, setDeviceSearch] = useState('');
+  const [devices, setDevices] = useState<DeviceOption[]>([]);
+  const [device, setDevice] = useState<DeviceOption | null>(null);
+  const [favorites, setFavorites] = useState<DeviceOption[]>([]);
+  const [recents, setRecents] = useState<DeviceOption[]>([]);
+  const [componentSearch, setComponentSearch] = useState('');
+  const [components, setComponents] = useState<ComponentOption[]>([]);
+  const [selectedComponents, setSelectedComponents] = useState<SelectedComponent[]>([]);
+  const [scanRegion, setScanRegion] = useState('');
+  const [showRegionPicker, setShowRegionPicker] = useState(false);
+  const [coilType, setCoilType] = useState('');
+  const [showCoilPicker, setShowCoilPicker] = useState(false);
+  const [serialNumber, setSerialNumber] = useState('');
+  const [result, setResult] = useState<any>(null);
+  const [busy, setBusy] = useState(false);
+  const [confirmations, setConfirmations] = useState<Record<string, boolean>>({});
+  const [deviceQuestions, setDeviceQuestions] = useState<DeviceQuestion[]>([]);
+  const [questionAnswers, setQuestionAnswers] = useState<Record<string, any>>({});
+  const [allowExactWithoutComponents, setAllowExactWithoutComponents] = useState(false);
+  const [scanDetails, setScanDetails] = useState<any>(null);
+  const [examContext, setExamContext] = useState<any>(null);
+
+  useEffect(() => {
+    (async () => {
+      const [{ data: profileData }, { data: favoriteData }, { data: recentData }] = await Promise.all([
+        supabase.rpc('quickcheck_list_scanner_profiles'),
+        supabase.rpc('quickcheck_list_favorite_devices'),
+        supabase.rpc('quickcheck_list_recent_devices', { p_limit: 6 })
+      ]);
+      const rows = (profileData ?? []) as ScannerProfile[];
+      setProfiles(rows);
+      setFavorites((favoriteData ?? []) as DeviceOption[]);
+      setRecents((recentData ?? []) as DeviceOption[]);
+      const d = rows.find((x) => x.is_default);
+      if (d) {
+        setScanner({ id: d.generic_scanner_model_id || d.id, manufacturer: d.manufacturer, model: d.model, field_strength_t: d.field_strength_t });
+        setScannerProfileId(d.id);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    let live = true;
+    (async () => {
+      if (!device) { setScanDetails(null); return; }
+      const { data, error } = await supabase.rpc('quickcheck_get_optional_scan_details', { p_device_id: device.id, p_scanner_strength_t: scanner?.field_strength_t ?? null });
+      if (live) setScanDetails(error ? null : data);
+    })();
+    return () => { live = false; };
+  }, [device?.id, scanner?.field_strength_t]);
+
+  useEffect(() => {
+    let live = true;
+    (async () => {
+      if (!device) { setExamContext(null); return; }
+      const { data, error } = await supabase.rpc('quickcheck_evaluate_exam_context', { p_device_id: device.id, p_scanner_strength_t: scanner?.field_strength_t ?? null, p_scan_region: scanRegion.trim() || null, p_coil_type: coilType || null });
+      if (live) setExamContext(error ? null : data);
+    })();
+    return () => { live = false; };
+  }, [device?.id, scanner?.field_strength_t, scanRegion, coilType]);
+
+  const favoriteIds = useMemo(() => new Set(favorites.map((x) => x.id)), [favorites]);
+  const recentUnpinned = useMemo(() => recents.filter((x) => !favoriteIds.has(x.id)), [recents, favoriteIds]);
+  const tone = useMemo(() => {
+    if (result?.safe_to_scan === true || result?.conditions_met === true || result?.status === 'safe') return 'safe';
+    if (result?.hard_conflict === true || result?.status === 'unsafe' || result?.status === 'not_cleared') return 'danger';
+    if (result?.status === 'conditional' || result?.status === 'guidance') return 'conditional';
+    return 'unknown';
+  }, [result]);
+  const conditions: GuidanceCondition[] = Array.isArray(result?.conditions) ? result.conditions : [];
+  const checklist: ChecklistItem[] = Array.isArray(result?.condition_checklist) ? result.condition_checklist : [];
+  const allChecklistConfirmed = checklist.length > 0 && checklist.every((x, i) => confirmations[x.key || `item_${i}`]);
+  const bodyPartRelevant = !!scanDetails?.body_part_relevant;
+  const coilRelevant = !!scanDetails?.coil_type_relevant;
+  const examContextConflict = examContext?.overall_status === 'conflict';
+  const examContextNeedsInfo = examContext?.overall_status === 'more_info';
+  const examContextReady = !!examContext && !examContextConflict && !examContextNeedsInfo;
+
+  function questionVisible(q: DeviceQuestion) {
+    if (!q.show_when) return true;
+    return Object.entries(q.show_when).every(([k, v]) => questionAnswers[k] === v);
+  }
+
+  function questionRequired(q: DeviceQuestion) {
+    return !!q.required_for_exact_check || !!q.required_when_shown || (!!q.required_for_model && q.required_for_model === device?.model);
+  }
+
+  const visibleQuestions = deviceQuestions.filter(questionVisible);
+  const missingRequired = visibleQuestions.filter((q) => {
+    if (!questionRequired(q)) return false;
+    const v = questionAnswers[q.key];
+    return v === undefined || v === null || v === '';
+  });
+  const dangerousNo = visibleQuestions.find((q) => q.danger_if_false && questionAnswers[q.key] === false);
+  const canRunExact = !!scanner && !!scanRegion && (selectedComponents.length > 0 || allowExactWithoutComponents);
+
+  async function refreshFavorites() {
+    const { data, error } = await supabase.rpc('quickcheck_list_favorite_devices');
+    if (!error) setFavorites((data ?? []) as DeviceOption[]);
+  }
+
+  async function refreshRecents() {
+    const { data, error } = await supabase.rpc('quickcheck_list_recent_devices', { p_limit: 6 });
+    if (!error) setRecents((data ?? []) as DeviceOption[]);
+  }
+
+  async function toggleFavorite(item: DeviceOption) {
+    const next = !favoriteIds.has(item.id);
+    const { error } = await supabase.rpc('quickcheck_set_device_favorite', { p_device_id: item.id, p_favorite: next });
+    if (error) return setResult({ status: 'unknown', display_status: 'PIN ERROR', decision: error.message });
+    await Haptics.selectionAsync();
+    await refreshFavorites();
+  }
+
+  async function doDeviceSearch(term: string) {
+    Keyboard.dismiss();
+    setBusy(true);
+    const { data, error } = await supabase.rpc('quickcheck_search_devices', { p_search: term.trim() });
+    setBusy(false);
+    if (error) return setResult({ status: 'unknown', display_status: 'DEVICE SEARCH ERROR', decision: error.message });
+    setDevices(((data ?? []) as DeviceOption[]).slice(0, 20));
+  }
+
+  async function searchDevices() { await doDeviceSearch(deviceSearch); }
+
+  async function quickCategory(term: string) {
+    setDeviceSearch(term);
+    setDevice(null);
+    setResult(null);
+    setSelectedComponents([]);
+    setDeviceQuestions([]);
+    setQuestionAnswers({});
+    setAllowExactWithoutComponents(false);
+    setScanRegion('');
+    setCoilType('');
+    setScanDetails(null);
+    setExamContext(null);
+    await Haptics.selectionAsync();
+    await doDeviceSearch(term);
+  }
+
+  async function searchComponents() {
+    Keyboard.dismiss();
+    if (!device) return;
+    setBusy(true);
+    const { data, error } = await supabase.rpc('quickcheck_search_components', { p_device_id: device.id, p_search: componentSearch.trim() });
+    setBusy(false);
+    if (error) return setResult({ status: 'unknown', display_status: 'COMPONENT SEARCH ERROR', decision: error.message });
+    setComponents(((data ?? []) as ComponentOption[]).slice(0, 30));
+  }
+
+  async function loadGuidance(selected: DeviceOption, selectedRegion = scanRegion, strength: number | null = scanner?.field_strength_t ?? null) {
+    setBusy(true);
+    setConfirmations({});
+    const response = await supabase.rpc('quickcheck_get_device_guidance', { p_device_id: selected.id, p_scanner_strength_t: strength, p_scan_region: selectedRegion.trim() || null });
+    setBusy(false);
+    setResult(response.error ? { status: 'unknown', display_status: 'GUIDANCE ERROR', decision: response.error.message } : response.data);
+  }
+
+  async function chooseProfile(p: ScannerProfile) {
+    const nextScanner = { id: p.generic_scanner_model_id || p.id, manufacturer: p.manufacturer, model: p.model, field_strength_t: p.field_strength_t };
+    setScanner(nextScanner);
+    setScannerProfileId(p.id);
+    setShowScannerPicker(false);
+    setConfirmations({});
+    setExamContext(null);
+    if (device) await loadGuidance(device, scanRegion, p.field_strength_t);
+    else setResult(null);
+  }
+
+  async function chooseScannerUnknown() {
+    setScanner(null);
+    setScannerProfileId(null);
+    setShowScannerPicker(false);
+    setConfirmations({});
+    setExamContext(null);
+    if (device) await loadGuidance(device, scanRegion, null);
+    else setResult(null);
+  }
+
+  async function loadDeviceQuestions(selected: DeviceOption) {
+    const { data, error } = await supabase.rpc('quickcheck_get_device_questions', { p_device_id: selected.id });
+    if (error) { setDeviceQuestions([]); setAllowExactWithoutComponents(false); return; }
+    setDeviceQuestions(Array.isArray(data?.questions) ? data.questions : []);
+    setAllowExactWithoutComponents(Boolean(data?.exact_check_without_components));
+  }
+
+  async function selectDevice(item: DeviceOption) {
+    setDevice(item);
+    setSelectedComponents([]);
+    setComponents([]);
+    setQuestionAnswers({});
+    setDeviceQuestions([]);
+    setAllowExactWithoutComponents(false);
+    setScanRegion('');
+    setCoilType('');
+    setScanDetails(null);
+    setExamContext(null);
+    await Promise.all([loadGuidance(item, '', scanner?.field_strength_t ?? null), loadDeviceQuestions(item), supabase.rpc('quickcheck_mark_recent_device', { p_device_id: item.id })]);
+    await refreshRecents();
+  }
+
+  function setAnswer(q: DeviceQuestion, value: any) {
+    setQuestionAnswers((answers) => {
+      const next = { ...answers, [q.key]: value };
+      for (const child of deviceQuestions) {
+        if (child.show_when && Object.keys(child.show_when).includes(q.key) && child.show_when[q.key] !== value) delete next[child.key];
+      }
+      return next;
+    });
+    if (q.type === 'serial') setSerialNumber(String(value ?? ''));
+  }
+
+  function updateComponentSlot(index: number, value: string) {
+    setSelectedComponents((current) => current.map((item, i) => i === index ? { ...item, slot: value } : item));
+  }
+
+  async function runCheck() {
+    Keyboard.dismiss();
+    if (!device) return;
+    if (canRunExact && missingRequired.length) {
+      setResult({ status: 'unknown', display_status: 'MORE INFORMATION REQUIRED', decision: `Complete: ${missingRequired.map((q) => q.label).join(', ')}.` });
+      return;
+    }
+    if (canRunExact && dangerousNo) {
+      setResult({ status: 'not_cleared', display_status: 'DO NOT ENTER MRI — REQUIRED PREPARATION NOT CONFIRMED', decision: `${dangerousNo.label} Manufacturer-required preparation is not confirmed.` });
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      return;
+    }
+
+    setBusy(true);
+    setConfirmations({});
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+
+    if (canRunExact && scanner) {
+      const contextResponse = await supabase.rpc('quickcheck_evaluate_exam_context', { p_device_id: device.id, p_scanner_strength_t: scanner.field_strength_t, p_scan_region: scanRegion.trim() || null, p_coil_type: coilType || null });
+      if (contextResponse.error) {
+        setBusy(false);
+        setResult((current: any) => ({ ...current, status: 'unknown', display_status: 'EXAM CONTEXT CHECK ERROR', decision: contextResponse.error.message, exact_system_verified: false }));
+        return;
+      }
+      const contextData = contextResponse.data;
+      setExamContext(contextData);
+      if (contextData?.overall_status === 'conflict') {
+        setBusy(false);
+        setResult((current: any) => ({ ...current, status: 'not_cleared', display_status: 'NOT CLEARED FOR SELECTED EXAM', decision: contextData.decision, exact_system_verified: false, exam_context: contextData }));
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        return;
+      }
+      if (contextData?.overall_status === 'more_info') {
+        setBusy(false);
+        setResult((current: any) => ({ ...current, status: 'unknown', display_status: 'MORE INFORMATION REQUIRED — EXAM CONTEXT', decision: contextData.decision, exact_system_verified: false, exam_context: contextData }));
+        return;
+      }
+    }
+
+    let response: any;
+    if (canRunExact) {
+      const metadata: Record<string, any> = { ...questionAnswers, body_part: scanRegion, ...(coilType ? { coil_type: coilType } : {}) };
+      const serial = String(questionAnswers.generator_serial_number ?? serialNumber).trim() || null;
+      delete metadata.generator_serial_number;
+      const args: any = {
+        p_device_id: device.id,
+        p_components: selectedComponents.map((x, i) => ({ component_id: x.id, slot: x.slot.trim() || `component_${i + 1}` })),
+        p_scanner_model_id: scanner!.id,
+        p_scanner_strength_t: scanner!.field_strength_t,
+        p_scan_region: scanRegion,
+        p_generator_serial_number: serial,
+        p_implant_metadata: metadata
+      };
+      if (scannerProfileId) args.p_scanner_profile_id = scannerProfileId;
+      response = await supabase.rpc('quickcheck_run_exact_system_check_v4', args);
+    } else {
+      response = await supabase.rpc('quickcheck_get_device_guidance', { p_device_id: device.id, p_scanner_strength_t: scanner?.field_strength_t ?? null, p_scan_region: scanRegion.trim() || null });
+    }
+
+    setBusy(false);
+    setResult(response.error ? { status: 'unknown', display_status: 'QUICKCHECK ERROR', decision: response.error.message } : response.data);
+  }
+
+  async function verifyChecklist() {
+    if (!device || !scanner || !allChecklistConfirmed || !STANDARD_EXACT_BASES.has(result?.verification_basis)) return;
+    setBusy(true);
+    const response = await supabase.rpc('quickcheck_evaluate_condition_confirmation', { p_device_id: device.id, p_scanner_model_id: scanner.id, p_scanner_strength_t: scanner.field_strength_t, p_scan_region: scanRegion, p_confirmations: confirmations });
+    setBusy(false);
+    if (response.error) return setResult((current: any) => ({ ...current, decision: response.error.message }));
+    setResult((current: any) => ({ ...current, ...response.data, exact_system_verified: true }));
+    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  }
+
+  const headline = result?.display_status || (result?.status === 'guidance' ? 'MANUFACTURER MRI LABELING' : 'MRI LABELING RESULT');
+  const requirementBorder = examContextConflict ? palette.danger : examContextNeedsInfo ? palette.conditional : examContextReady ? palette.safe : palette.conditional;
+  const requirementLabel = examContextConflict ? 'SELECTED EXAM CONFLICT' : examContextNeedsInfo ? 'MANUFACTURER EXAM DETAILS STILL NEEDED' : examContextReady ? 'SELECTED EXAM DETAILS RECORDED' : 'MANUFACTURER EXAM-DETAIL REQUIREMENTS';
+  const requirementLabelColor = examContextConflict ? palette.danger : examContextNeedsInfo ? palette.conditional : examContextReady ? palette.safe : palette.conditional;
+
+  return <ScrollView contentInsetAdjustmentBehavior="automatic" keyboardDismissMode="interactive" keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 16, paddingBottom: 60, gap: 22 }}>
+    <SectionTitle step="OPTIONAL" title="Your scanner" detail="Your default saved scanner is selected automatically. Choose Scanner unknown when you only need the manufacturer's labeling." />
+    <Pressable onPress={() => setShowScannerPicker((v) => !v)} style={{ backgroundColor: palette.surface, borderWidth: 1.5, borderColor: scanner ? palette.brand : palette.line, borderRadius: radii.md, padding: 15, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+      <Image source="sf:wave.3.right.circle.fill" style={{ width: 25, height: 25 }} tintColor={palette.brand} />
+      <View style={{ flex: 1 }}><Text style={{ color: palette.text, fontWeight: '800', fontSize: 16 }}>{scanner ? `${scanner.manufacturer} ${scanner.model}` : 'Scanner unknown / guidelines only'}</Text><Text style={{ color: palette.muted, fontSize: 13 }}>{scanner ? `${scanner.field_strength_t}T · Saved scanner` : 'Manufacturer labeling will still be shown'}</Text></View>
+      <Text style={{ color: palette.brand, fontWeight: '900' }}>Change</Text>
+    </Pressable>
+    {showScannerPicker ? <View style={{ gap: 8 }}>
+      <Pressable onPress={chooseScannerUnknown} style={{ padding: 14, borderRadius: radii.md, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.surface }}><Text style={{ color: palette.text, fontWeight: '800' }}>Scanner unknown / guidelines only</Text></Pressable>
+      {profiles.map((p) => <Pressable key={p.id} onPress={() => chooseProfile(p)} style={{ padding: 14, borderRadius: radii.md, borderWidth: 1, borderColor: p.id === scannerProfileId ? palette.brand : palette.line, backgroundColor: p.id === scannerProfileId ? palette.brandSoft : palette.surface }}><Text style={{ color: palette.text, fontWeight: '800' }}>{p.nickname || `${p.manufacturer} ${p.model}`}{p.is_default ? ' · DEFAULT' : ''}</Text><Text style={{ color: palette.muted, fontSize: 13 }}>{p.manufacturer} {p.model} · {p.field_strength_t}T</Text></Pressable>)}
+    </View> : null}
+
+    <View style={{ height: 1, backgroundColor: palette.line }} />
+    <SectionTitle step="REQUIRED" title="Identify implant" detail="Search by name, manufacturer, model, abbreviation, or common clinical term. Pin common implants or reopen recently used implants with one tap." />
+    {favorites.length > 0 ? <View style={{ gap: 8 }}><Text style={{ color: palette.brand, fontSize: 12, fontWeight: '900' }}>📌 PINNED IMPLANTS</Text><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 9, paddingRight: 12 }}>{favorites.map((item) => <View key={item.id} style={{ width: 220, backgroundColor: palette.brandSoft, borderWidth: 1, borderColor: palette.brand, borderRadius: radii.md, padding: 12, gap: 8 }}><Pressable onPress={() => selectDevice(item)}><Text numberOfLines={1} style={{ color: palette.text, fontWeight: '900' }}>{item.manufacturer} · {item.model}</Text><Text numberOfLines={1} style={{ color: palette.muted, fontSize: 12 }}>{item.family ?? item.device_type}</Text></Pressable><Pressable onPress={() => toggleFavorite(item)}><Text style={{ color: palette.brand, fontSize: 12, fontWeight: '900' }}>Unpin</Text></Pressable></View>)}</ScrollView></View> : null}
+    {recentUnpinned.length > 0 ? <View style={{ gap: 8 }}><Text style={{ color: palette.muted, fontSize: 12, fontWeight: '900' }}>RECENTLY USED</Text><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 9, paddingRight: 12 }}>{recentUnpinned.map((item) => <View key={item.id} style={{ width: 220, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, borderRadius: radii.md, padding: 12, gap: 8 }}><Pressable onPress={() => selectDevice(item)}><Text numberOfLines={1} style={{ color: palette.text, fontWeight: '900' }}>{item.manufacturer} · {item.model}</Text><Text numberOfLines={1} style={{ color: palette.muted, fontSize: 12 }}>{item.family ?? item.device_type}</Text></Pressable><Pressable onPress={() => toggleFavorite(item)}><Text style={{ color: palette.brand, fontSize: 12, fontWeight: '900' }}>Pin</Text></Pressable></View>)}</ScrollView></View> : null}
+    <View style={{ gap: 8 }}><Text style={{ color: palette.muted, fontSize: 12, fontWeight: '800' }}>QUICK CATEGORIES</Text><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 12 }}>{DEVICE_CATEGORIES.map(([label, term]) => <Pressable key={label} disabled={busy} onPress={() => quickCategory(term)} style={{ paddingHorizontal: 13, paddingVertical: 10, borderRadius: radii.pill, borderWidth: 1, borderColor: deviceSearch.toLowerCase() === term.toLowerCase() ? palette.brand : palette.line, backgroundColor: deviceSearch.toLowerCase() === term.toLowerCase() ? palette.brandSoft : palette.surface }}><Text style={{ color: deviceSearch.toLowerCase() === term.toLowerCase() ? palette.brand : palette.text, fontWeight: '800' }}>{label}</Text></Pressable>)}</ScrollView></View>
+    <SearchField value={deviceSearch} onChangeText={setDeviceSearch} placeholder="Pain pump, SCS, pacemaker, 97810, InterStim…" onSubmit={searchDevices} />
+    <Pressable disabled={busy} onPress={searchDevices} style={{ alignSelf: 'flex-start', backgroundColor: palette.brandSoft, paddingHorizontal: 14, paddingVertical: 9, borderRadius: radii.pill }}><Text style={{ color: palette.brand, fontWeight: '800' }}>Search devices</Text></Pressable>
+    {busy ? <ActivityIndicator color={palette.brand} /> : null}
+    {devices.map((item) => <View key={item.id} style={{ backgroundColor: device?.id === item.id ? palette.brandSoft : palette.surface, borderWidth: 1.5, borderColor: device?.id === item.id ? palette.brand : palette.line, borderRadius: radii.md, padding: 13, flexDirection: 'row', alignItems: 'center', gap: 10 }}><Pressable onPress={() => selectDevice(item)} style={{ flex: 1 }}><Text style={{ color: palette.text, fontSize: 16, fontWeight: '800' }}>{item.manufacturer} · {item.model}</Text><Text style={{ color: palette.muted, fontSize: 13 }}>{item.family ?? item.device_type}</Text></Pressable><Pressable onPress={() => toggleFavorite(item)} style={{ width: 42, height: 42, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: palette.brand, fontSize: 20 }}>{favoriteIds.has(item.id) ? '📌' : '＋'}</Text></Pressable></View>)}
+
+    {result ? <View style={{ gap: 12 }}><View style={{ backgroundColor: tone === 'danger' ? palette.danger : tone === 'safe' ? palette.safe : palette.surface, borderRadius: radii.lg, padding: 18, gap: 8, borderWidth: tone === 'conditional' || tone === 'unknown' ? 1 : 0, borderColor: tone === 'conditional' ? palette.conditional : palette.line }}><Text style={{ color: tone === 'danger' || tone === 'safe' ? palette.white : palette.muted, fontSize: 12, fontWeight: '900' }}>{result.guidance_mode ? 'MANUFACTURER MRI LABELING' : 'EXACT SYSTEM QUICKCHECK'}</Text><Text selectable style={{ color: tone === 'danger' || tone === 'safe' ? palette.white : palette.text, fontSize: 24, fontWeight: '900' }}>{headline}</Text><Text selectable style={{ color: tone === 'danger' || tone === 'safe' ? palette.white : palette.muted, fontSize: 13, lineHeight: 19 }}>{result.decision ?? result.reason ?? result.next_action}</Text></View><View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}><Metric label="Selected scanner" value={scanner ? `${scanner.field_strength_t}T` : 'Unknown'} /><Metric label="Body part / scan region" value={scanRegion || 'Not selected'} /><Metric label="Coil type" value={coilType ? COIL_TYPES.find((x) => x[0] === coilType)?.[1] : 'Not selected'} /></View></View> : null}
+
+    {conditions.map((c, i) => <View key={c.id || String(i)} style={{ backgroundColor: palette.surface, borderRadius: radii.lg, borderWidth: 1.5, borderColor: c.matches_selected_scanner === false ? palette.danger : palette.line, padding: 16, gap: 10 }}><Text style={{ color: palette.brand, fontSize: 11, fontWeight: '900' }}>MANUFACTURER CONDITION</Text><Text style={{ color: palette.text, fontSize: 19, fontWeight: '900' }}>{fieldStrengthLabel(c)} · {c.scan_region ?? 'Manufacturer-defined region'}</Text><View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}><Metric label="Whole-body SAR" value={c.max_whole_body_sar_w_kg != null ? `≤ ${c.max_whole_body_sar_w_kg} W/kg` : null} /><Metric label="Head SAR" value={c.max_head_sar_w_kg != null ? `≤ ${c.max_head_sar_w_kg} W/kg` : null} /><Metric label="B1+rms" value={c.max_b1_rms_ut != null ? `≤ ${c.max_b1_rms_ut} µT` : null} /></View>{[['Operating mode', c.operating_mode], ['Coil', c.coil_requirements], ['Positioning', c.positioning_requirements], ['MRI mode/programming', c.programming_requirements], ['Monitoring', c.monitoring_requirements], ['Components/leads', c.lead_requirements], ['Other conditions', c.other_conditions]].map(([label, value]) => value ? <Text key={label as string} selectable style={{ color: palette.text, fontSize: 13, lineHeight: 19 }}><Text style={{ fontWeight: '900' }}>{label}: </Text>{value}</Text> : null)}{c.source?.source_url ? <Pressable onPress={() => Linking.openURL(c.source!.source_url!)} style={{ alignSelf: 'flex-start', backgroundColor: palette.brand, paddingHorizontal: 14, paddingVertical: 10, borderRadius: radii.pill }}><Text style={{ color: palette.white, fontWeight: '900' }}>Open Manufacturer MRI Instructions</Text></Pressable> : null}</View>)}
+
+    {deviceQuestions.length > 0 ? <View style={{ gap: 12, backgroundColor: palette.surface, borderRadius: radii.lg, borderWidth: 1.5, borderColor: dangerousNo ? palette.danger : palette.line, padding: 16 }}><SectionTitle step="DEVICE-SPECIFIC" title="Implant screening questions" detail="These questions come from the selected implant pathway. Manufacturer labeling remains available even if you do not know every answer." />{visibleQuestions.map((q, questionIndex) => <View key={`${q.key}-${questionIndex}`} style={{ gap: 7 }}><Text style={{ color: palette.text, fontWeight: '900' }}>{q.label}{questionRequired(q) ? ' *' : ''}</Text>{q.type === 'boolean' ? <View style={{ flexDirection: 'row', gap: 8 }}>{[true, false].map((v) => <Pressable key={String(v)} onPress={() => setAnswer(q, v)} style={{ flex: 1, padding: 12, borderRadius: radii.md, borderWidth: 1.5, borderColor: questionAnswers[q.key] === v ? (q.danger_if_false && !v ? palette.danger : palette.brand) : palette.line, backgroundColor: questionAnswers[q.key] === v ? (q.danger_if_false && !v ? palette.dangerSoft : palette.brandSoft) : palette.bg, alignItems: 'center' }}><Text style={{ fontWeight: '900', color: questionAnswers[q.key] === v ? (q.danger_if_false && !v ? palette.danger : palette.brand) : palette.text }}>{v ? 'Yes' : 'No'}</Text></Pressable>)}</View> : q.type === 'choice' ? <View style={{ gap: 7 }}>{(q.options ?? []).map((o) => <Pressable key={o.value} onPress={() => setAnswer(q, o.value)} style={{ padding: 12, borderRadius: radii.md, borderWidth: 1.5, borderColor: questionAnswers[q.key] === o.value ? palette.brand : palette.line, backgroundColor: questionAnswers[q.key] === o.value ? palette.brandSoft : palette.bg }}><Text style={{ color: palette.text, fontWeight: '800' }}>{o.label}</Text></Pressable>)}</View> : <TextInput value={questionAnswers[q.key] === undefined ? '' : String(questionAnswers[q.key])} onChangeText={(v) => setAnswer(q, q.type === 'number' ? (v === '' ? '' : Number(v)) : v)} keyboardType={q.type === 'number' ? 'decimal-pad' : 'default'} autoCapitalize={q.type === 'serial' ? 'characters' : 'sentences'} placeholder="Enter value" placeholderTextColor={palette.muted} style={{ backgroundColor: palette.bg, borderWidth: 1, borderColor: palette.line, borderRadius: radii.md, paddingHorizontal: 13, height: 48, color: palette.text }} />}{q.help ? <Text style={{ color: q.danger_if_false ? palette.danger : palette.muted, fontSize: 12, lineHeight: 17 }}>{q.help}</Text> : null}</View>)}{missingRequired.length ? <Text style={{ color: palette.conditional, fontSize: 12, fontWeight: '800' }}>Exact-system check still needs: {missingRequired.map((q) => q.label).join(', ')}</Text> : null}{dangerousNo ? <Text style={{ color: palette.danger, fontSize: 13, fontWeight: '900' }}>MRI hard stop: required manufacturer preparation has not been confirmed.</Text> : null}</View> : null}
+
+    {device && allowExactWithoutComponents ? <View style={{ backgroundColor: palette.brandSoft, borderWidth: 1, borderColor: palette.brand, borderRadius: radii.md, padding: 13, gap: 4 }}><Text style={{ color: palette.brand, fontSize: 12, fontWeight: '900' }}>DEVICE-ONLY MRI PATHWAY</Text><Text style={{ color: palette.text, fontWeight: '800' }}>{device.device_type?.toLowerCase().includes('monitor') ? 'No separate lead/component selection is required for this implanted cardiac monitor.' : 'No separate lead/component selection is required for this device pathway.'}</Text><Text style={{ color: palette.muted, fontSize: 12, lineHeight: 17 }}>QuickCheck still requires the selected scanner and every applicable manufacturer condition to be confirmed before showing conditions met.</Text></View> : null}
+
+    {device && !allowExactWithoutComponents ? <><View style={{ height: 1, backgroundColor: palette.line }} /><SectionTitle step="OPTIONAL" title="Exact implanted components" detail="Manufacturer labeling remains visible if these are unknown. Add the complete implanted system when available to run exact-system verification. QuickCheck automatically resolves a component role when the verified system has only one valid slot; otherwise you can enter the exact role below." /><SearchField value={componentSearch} onChangeText={setComponentSearch} placeholder="Search lead, extension, electrode, catheter…" onSubmit={searchComponents} /><Pressable onPress={searchComponents} style={{ alignSelf: 'flex-start', backgroundColor: palette.brandSoft, paddingHorizontal: 14, paddingVertical: 9, borderRadius: radii.pill }}><Text style={{ color: palette.brand, fontWeight: '800' }}>Find components</Text></Pressable>{components.map((item) => <Pressable key={item.id} onPress={() => !selectedComponents.some((x) => x.id === item.id) && setSelectedComponents((current) => [...current, { ...item, slot: '' }])} style={{ backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, borderRadius: radii.md, padding: 14 }}><Text style={{ color: palette.text, fontWeight: '800' }}>{item.model}</Text><Text style={{ color: palette.muted, fontSize: 13 }}>{item.component_type}</Text></Pressable>)}{selectedComponents.map((item, i) => <View key={`${item.id}-${i}`} style={{ backgroundColor: palette.brandSoft, borderRadius: radii.md, padding: 14, gap: 8 }}><Text style={{ color: palette.text, fontWeight: '800' }}>{item.model}</Text><TextInput value={item.slot} onChangeText={(value) => updateComponentSlot(i, value)} autoCapitalize="none" autoCorrect={false} placeholder="Exact role/slot (optional, e.g. lead, RA, RV defib, LV)" placeholderTextColor={palette.muted} style={{ backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, borderRadius: radii.sm, paddingHorizontal: 12, height: 44, color: palette.text }} /><Text style={{ color: palette.muted, fontSize: 11, lineHeight: 16 }}>Leave blank when the component has only one verified role; QuickCheck will resolve that role automatically. Ambiguous roles remain fail-closed.</Text><Pressable onPress={() => setSelectedComponents((current) => current.filter((_, j) => j !== i))}><Text style={{ color: palette.danger, fontSize: 12, fontWeight: '800' }}>Remove component</Text></Pressable></View>)}</> : null}
+
+    <View style={{ height: 1, backgroundColor: palette.line }} />
+    <SectionTitle step="OPTIONAL SCAN DETAILS" title="Body part and RF coil" detail={bodyPartRelevant || coilRelevant ? 'This implant has manufacturer MRI labeling that depends on the selected exam details. Missing or unverified details remain fail-closed for exact eligibility.' : 'These selections are optional exam context. Manufacturer labeling remains visible when they are unknown.'} />
+    {device && (bodyPartRelevant || coilRelevant) ? <View style={{ gap: 8, backgroundColor: examContextReady ? palette.safeSoft : examContextConflict ? palette.dangerSoft : palette.surface, borderRadius: radii.md, borderWidth: 1.5, borderColor: requirementBorder, padding: 13 }}><Text style={{ color: requirementLabelColor, fontSize: 11, fontWeight: '900' }}>{requirementLabel}</Text>{bodyPartRelevant ? <><Text style={{ color: palette.text, fontWeight: '900' }}>Body part affects MRI eligibility</Text><Text style={{ color: palette.muted, fontSize: 12, lineHeight: 17 }}>{scanDetails?.body_part_attention ?? 'Manufacturer labeling varies by scan region/body part.'}</Text>{Array.isArray(scanDetails?.scan_regions) && scanDetails.scan_regions.length ? <Text selectable style={{ color: palette.text, fontSize: 12, lineHeight: 17 }}><Text style={{ fontWeight: '900' }}>Loaded manufacturer region wording: </Text>{scanDetails.scan_regions.join(' · ')}</Text> : null}</> : null}{coilRelevant ? <><Text style={{ color: palette.text, fontWeight: '900' }}>RF coil affects MRI eligibility</Text><Text style={{ color: palette.muted, fontSize: 12, lineHeight: 17 }}>{scanDetails?.coil_attention ?? 'Manufacturer labeling contains RF coil-specific conditions.'}</Text>{Array.isArray(scanDetails?.coil_requirements) ? scanDetails.coil_requirements.map((x: string, i: number) => <Text key={`${x}-${i}`} selectable style={{ color: palette.text, fontSize: 12, lineHeight: 17 }}>• {x}</Text>) : null}</> : null}</View> : null}
+
+    <Pressable onPress={() => setShowRegionPicker((v) => !v)} style={{ backgroundColor: palette.surface, borderWidth: 1.5, borderColor: statusBorder(examContext?.body_part_status, !!scanRegion, bodyPartRelevant), borderRadius: radii.md, padding: 14, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}><View style={{ flex: 1, gap: 2 }}><Text style={{ color: palette.text, fontSize: 16, fontWeight: '800' }}>{scanRegion || 'Body part not selected'}</Text>{bodyPartRelevant ? <Text style={{ color: examContext?.body_part_status === 'conflict' ? palette.danger : scanRegion && (examContext?.body_part_status === 'compatible' || examContext?.body_part_status === 'device_specific') ? palette.safe : scanRegion ? palette.brand : palette.conditional, fontSize: 11, fontWeight: '900' }}>{scanRegion ? examStatusLabel(examContext?.body_part_status).toUpperCase() : 'AFFECTS MRI ELIGIBILITY · NEEDED FOR EXACT EXAM CHECK'}</Text> : null}</View><Text style={{ color: palette.brand, fontWeight: '900' }}>Choose</Text></Pressable>
+    {showRegionPicker ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}><Pressable onPress={() => { setScanRegion(''); setShowRegionPicker(false); if (device) loadGuidance(device, '', scanner?.field_strength_t ?? null); }} style={{ paddingHorizontal: 12, paddingVertical: 10, borderRadius: radii.pill, borderWidth: 1, borderColor: !scanRegion ? palette.brand : palette.line }}><Text style={{ color: palette.text, fontWeight: '800' }}>Unknown / not selected</Text></Pressable>{SCAN_REGIONS.map((region) => <Pressable key={region} onPress={() => { const normalized = region.toLowerCase(); setScanRegion(normalized); setShowRegionPicker(false); if (device) loadGuidance(device, normalized, scanner?.field_strength_t ?? null); }} style={{ paddingHorizontal: 12, paddingVertical: 10, borderRadius: radii.pill, borderWidth: 1, borderColor: scanRegion === region.toLowerCase() ? palette.brand : palette.line }}><Text style={{ color: palette.text, fontWeight: '800' }}>{region}</Text></Pressable>)}</View> : null}
+
+    <Pressable onPress={() => setShowCoilPicker((v) => !v)} style={{ backgroundColor: palette.surface, borderWidth: 1.5, borderColor: statusBorder(examContext?.coil_status, !!coilType, coilRelevant), borderRadius: radii.md, padding: 14, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}><View style={{ flex: 1, gap: 2 }}><Text style={{ color: palette.text, fontSize: 16, fontWeight: '800' }}>{coilType ? COIL_TYPES.find((x) => x[0] === coilType)?.[1] : 'RF coil not selected'}</Text>{coilRelevant ? <Text style={{ color: examContext?.coil_status === 'conflict' ? palette.danger : coilType && (examContext?.coil_status === 'compatible' || examContext?.coil_status === 'device_specific') ? palette.safe : coilType ? palette.brand : palette.conditional, fontSize: 11, fontWeight: '900' }}>{coilType ? examStatusLabel(examContext?.coil_status).toUpperCase() : 'AFFECTS MRI ELIGIBILITY · REQUIRED TO RESOLVE COIL-SPECIFIC LABELING'}</Text> : null}</View><Text style={{ color: palette.brand, fontWeight: '900' }}>Choose</Text></Pressable>
+    {showCoilPicker ? <View style={{ gap: 8 }}><Pressable onPress={() => { setCoilType(''); setShowCoilPicker(false); }} style={{ padding: 12, borderRadius: radii.md, borderWidth: 1, borderColor: !coilType ? palette.brand : palette.line, backgroundColor: !coilType ? palette.brandSoft : palette.surface }}><Text style={{ color: palette.text, fontWeight: '800' }}>Unknown / not selected</Text></Pressable>{COIL_TYPES.map(([value, label]) => <Pressable key={value} onPress={() => { setCoilType(value); setShowCoilPicker(false); }} style={{ padding: 12, borderRadius: radii.md, borderWidth: 1, borderColor: coilType === value ? palette.brand : palette.line, backgroundColor: coilType === value ? palette.brandSoft : palette.surface }}><Text style={{ color: palette.text, fontWeight: '800' }}>{label}</Text></Pressable>)}</View> : null}
+
+    {device && (bodyPartRelevant || coilRelevant) && examContext ? <View style={{ gap: 5, backgroundColor: examContextConflict ? palette.dangerSoft : examContextNeedsInfo ? palette.conditionalSoft : palette.safeSoft, borderWidth: 1.5, borderColor: examContextConflict ? palette.danger : examContextNeedsInfo ? palette.conditional : palette.safe, borderRadius: radii.md, padding: 13 }}><Text style={{ color: examContextConflict ? palette.danger : examContextNeedsInfo ? palette.conditional : palette.safe, fontSize: 11, fontWeight: '900' }}>{examContextConflict ? 'NOT CLEARED FOR SELECTED EXAM CONTEXT' : examContextNeedsInfo ? 'EXAM CONTEXT NEEDS CONFIRMATION' : 'EXAM CONTEXT READY FOR REMAINING CHECKS'}</Text><Text style={{ color: palette.text, fontSize: 13, lineHeight: 18 }}>{examContext.decision}</Text><Text style={{ color: palette.muted, fontSize: 11, lineHeight: 16 }}>Body part: {examStatusLabel(examContext.body_part_status)} · RF coil: {examStatusLabel(examContext.coil_status)}. This exam-context result alone is not MRI clearance.</Text></View> : null}
+
+    <Text style={{ color: palette.muted, fontSize: 12, lineHeight: 17 }}>Manufacturer body-part and RF-coil requirements remain authoritative. QuickCheck does not infer that an unknown or free-text condition is satisfied.</Text>
+    {!deviceQuestions.some((q) => q.type === 'serial') ? <TextInput value={serialNumber} onChangeText={setSerialNumber} autoCapitalize="characters" placeholder="Generator serial number (optional)" placeholderTextColor={palette.muted} style={{ backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, borderRadius: radii.md, paddingHorizontal: 14, height: 50, color: palette.text }} /> : null}
+
+    <Pressable disabled={!device || busy} onPress={runCheck} style={{ opacity: !device || busy ? 0.45 : 1, backgroundColor: palette.brand, minHeight: 58, borderRadius: radii.md, alignItems: 'center', justifyContent: 'center' }}>{busy ? <ActivityIndicator color={palette.white} /> : <Text style={{ color: palette.white, fontSize: 17, fontWeight: '900' }}>{canRunExact ? 'Run Exact MRI QuickCheck' : 'Refresh Manufacturer MRI Labeling'}</Text>}</Pressable>
+
+    {checklist.length > 0 ? <View style={{ gap: 10, backgroundColor: palette.surface, borderRadius: radii.lg, borderWidth: 1, borderColor: palette.line, padding: 16 }}><Text style={{ color: palette.brand, fontSize: 11, fontWeight: '900' }}>CONDITIONS CHECKLIST</Text>{checklist.map((item, i) => { const key = item.key || `item_${i}`; const checked = !!confirmations[key]; return <Pressable key={key} onPress={() => setConfirmations((current) => ({ ...current, [key]: !checked }))} style={{ flexDirection: 'row', gap: 11, padding: 12, borderRadius: radii.md, backgroundColor: checked ? palette.safeSoft : palette.bg, borderWidth: checked ? 1 : 0, borderColor: checked ? palette.safe : palette.line }}><View style={{ flex: 1, gap: 2 }}><Text style={{ color: palette.text, fontWeight: '900' }}>{checked ? '☑' : '☐'} {item.label || 'Manufacturer condition'}</Text>{item.requirement ? <Text style={{ color: palette.muted, fontSize: 12, lineHeight: 17 }}>{item.requirement}</Text> : null}</View></Pressable>; })}{allChecklistConfirmed && !result?.guidance_mode && STANDARD_EXACT_BASES.has(result?.verification_basis) ? <Pressable disabled={busy} onPress={verifyChecklist} style={{ backgroundColor: palette.safe, minHeight: 52, borderRadius: radii.md, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: palette.white, fontWeight: '900' }}>Verify All Confirmed Conditions</Text></Pressable> : null}</View> : null}
+    {result && !conditions.length ? <StatusCard tone={tone as any} eyebrow={result.display_status ?? 'Result'} title={result.display_status ?? 'MRI result'} detail={result.decision ?? result.reason ?? result.next_action} /> : null}
+  </ScrollView>;
+}
