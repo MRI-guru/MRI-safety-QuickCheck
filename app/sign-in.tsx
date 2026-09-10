@@ -13,6 +13,14 @@ import {
 } from '@/lib/biometric-login';
 import { palette, radii } from '@/lib/theme';
 
+function friendlySignInError(message?: string) {
+  const text = (message ?? '').toLowerCase();
+  if (text.includes('confirm') || text.includes('verified')) return 'This email has not been confirmed yet. Open the confirmation link, then return and sign in with the same email and password.';
+  if (text.includes('rate limit') || text.includes('too many')) return 'Too many sign-in or email requests were made in a short period. Wait a few minutes, then try again once.';
+  if (text.includes('invalid login') || text.includes('invalid credentials')) return 'Sign-in failed. Check your email and password, then try again.';
+  return 'Sign-in failed. Check your email and password, then try again.';
+}
+
 export default function SignInScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -44,7 +52,7 @@ export default function SignInScreen() {
     });
 
     if (error) {
-      setMessage('Sign-in failed. Check your email and password, then try again.');
+      setMessage(friendlySignInError(error.message));
       return false;
     }
 
