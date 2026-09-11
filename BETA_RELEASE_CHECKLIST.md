@@ -48,13 +48,16 @@ Current intentionally unresolved high-value records include the Revi Extend MRI 
 - [x] EAS development, preview, and production channels configured
 - [x] Expo Updates runtime policy (`appVersion`) and EAS Updates URL configured
 - [x] `expo-updates` dependency and lockfile synchronized
+- [x] Expo SDK patch versions aligned (`expo ~57.0.21`, `expo-router ~57.0.20`)
+- [x] Current branch passes clean `npm ci`, TypeScript, Expo Doctor 21/21, production high-severity dependency audit, and public Expo-config validation
+- [x] Permanent beta hardening workflow now enforces install, typecheck, Expo Doctor, high-severity dependency audit, and Expo-config validation on every beta-branch push
+- [ ] Monitor 13 moderate transitive npm advisories in the current Expo/router toolchain; do not apply the current `--force` suggestions because npm proposes breaking Expo/router downgrades
 - [x] Production builds use auto-increment
 - [x] Non-exempt encryption flag configured as false
 - [x] Controlled TestFlight EAS workflow present at `.eas/workflows/testflight-beta.yml`
 - [x] Build 14 was submitted through TestFlight and approved for the controlled external beta
 - [x] Invitation-only clinician TestFlight group configured
 - [x] Beta branch reconciled with the Build 14 Expo/EAS update configuration
-- [x] Current beta branch passes clean `npm ci` + TypeScript typecheck
 - [ ] Create the next signed production iOS build containing the post-Build-14 frontend fixes
 - [ ] Re-test account creation/email confirmation, exact anatomy/RF-coil resolution, multi-implant assessment, source links, history, and account deletion in the new TestFlight binary
 - [ ] Replace any remaining App Store Connect placeholder metadata/URLs before public App Store submission
