@@ -117,6 +117,10 @@ export default function SignUpScreen() {
 
         {message ? <Text selectable accessibilityLiveRegion="polite" style={{ color: created ? palette.text : palette.danger, fontSize: 13, lineHeight: 18 }}>{message}</Text> : null}
 
+        <Pressable onPress={() => router.push('/privacy')} disabled={busy} hitSlop={8} style={{ minHeight: 40, alignItems: 'center', justifyContent: 'center', opacity: busy ? 0.5 : 1 }}>
+          <Text style={{ color: palette.brand, fontSize: 14, fontWeight: '800' }}>Review Privacy Policy</Text>
+        </Pressable>
+
         <Pressable onPress={() => router.replace('/sign-in')} style={{ minHeight: 46, alignItems: 'center', justifyContent: 'center' }}>
           <Text style={{ color: palette.brand, fontSize: 15, fontWeight: '800' }}>Back to sign in</Text>
         </Pressable>
