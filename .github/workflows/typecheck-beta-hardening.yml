@@ -1,16 +1,24 @@
-name: Beta Hardening Typecheck
+name: Beta Hardening Checks
 on:
   push:
     branches:
       - beta-hardening-typecheck-20260906
 jobs:
-  typecheck:
+  validate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: '22'
           cache: npm
-      - run: npm ci
-      - run: npm run typecheck
+      - name: Clean install
+        run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Expo Doctor
+        run: npx expo-doctor
+      - name: Production dependency audit
+        run: npm audit --omit=dev --audit-level=high
+      - name: Validate public Expo config
+        run: npx expo config --type public >/dev/null
