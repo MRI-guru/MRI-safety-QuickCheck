@@ -1,0 +1,50 @@
+name: One-time LivaNova Confirmation UI
+
+on:
+  push:
+    branches:
+      - beta-hardening-typecheck-20260906
+    paths:
+      - .github/workflows/enable-livanova-confirm-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: beta-hardening-typecheck-20260906
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Enable verified LivaNova condition confirmation
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('app/quickcheck.tsx')
+          text = path.read_text()
+          old = "const STANDARD_EXACT_BASES = new Set(['generator_specific_manufacturer_eligibility', 'manufacturer_verified_component_set', 'preverified_exact_system', 'cardiac_componentless_manufacturer_labeling']);"
+          new = "const STANDARD_EXACT_BASES = new Set(['generator_specific_manufacturer_eligibility', 'manufacturer_verified_component_set', 'preverified_exact_system', 'cardiac_componentless_manufacturer_labeling', 'livanova_vns_manufacturer_pathway']);"
+          if old not in text:
+              raise SystemExit('Expected STANDARD_EXACT_BASES definition not found; refusing to patch another QuickCheck version.')
+          path.write_text(text.replace(old, new, 1))
+          PY
+      - name: Clean install
+        run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Expo Doctor
+        run: npx expo-doctor
+      - name: Commit UI support
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/quickcheck.tsx
+          git commit -m 'Enable LivaNova VNS condition confirmation'
+          git push origin HEAD:beta-hardening-typecheck-20260906
