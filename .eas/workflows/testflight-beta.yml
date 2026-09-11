@@ -1,12 +1,7 @@
 name: Controlled TestFlight Beta
 
 on:
-  workflow_dispatch:
-  push:
-    branches:
-      - beta-hardening-typecheck-20260906
-    paths:
-      - .eas/workflows/testflight-beta.yml
+  workflow_dispatch: {}
 
 jobs:
   build_ios:
