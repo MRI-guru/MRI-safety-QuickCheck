@@ -2,17 +2,35 @@ name: Controlled TestFlight Beta
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - beta-hardening-typecheck-20260906
+    paths:
+      - .eas/workflows/testflight-beta.yml
 
 jobs:
   build_ios:
+    name: Build iOS production binary
     type: build
     params:
       platform: ios
       profile: production
 
-  submit_ios:
-    type: submit
+  testflight:
+    name: Distribute to MRI Clinician Beta
+    type: testflight
     needs: [build_ios]
     params:
-      platform: ios
+      build_id: ${{ needs.build_ios.outputs.build_id }}
       profile: production
+      external_groups:
+        - MRI Clinician Beta
+      submit_beta_review: true
+      changelog: |
+        Controlled clinician beta update.
+        - Improved body-part and RF-coil exam-context handling.
+        - Added exact device-specific pathway handling for manufacturer exclusion-zone cases.
+        - Hardened fail-closed result display so conflicts cannot appear cleared.
+        - Improved LivaNova VNS exact-pathway confirmation flow.
+        - Additional regression and release-gate coverage.
+        - Authentication, history, multi-implant, and account-deletion hardening.
