@@ -137,8 +137,10 @@ export default function QuickCheckScreen() {
   const favoriteIds = useMemo(() => new Set(favorites.map((x) => x.id)), [favorites]);
   const recentUnpinned = useMemo(() => recents.filter((x) => !favoriteIds.has(x.id)), [recents, favoriteIds]);
   const tone = useMemo(() => {
-    if (result?.safe_to_scan === true || result?.conditions_met === true || result?.status === 'safe') return 'safe';
+    // Fail-closed visual precedence: a hard conflict must never render green even if stale/contradictory
+    // response fields also contain a previously confirmed condition flag.
     if (result?.hard_conflict === true || result?.status === 'unsafe' || result?.status === 'not_cleared') return 'danger';
+    if (result?.safe_to_scan === true || result?.conditions_met === true || result?.status === 'safe') return 'safe';
     if (result?.status === 'conditional' || result?.status === 'guidance') return 'conditional';
     return 'unknown';
   }, [result]);
@@ -149,7 +151,8 @@ export default function QuickCheckScreen() {
   const coilRelevant = !!scanDetails?.coil_type_relevant;
   const examContextConflict = examContext?.overall_status === 'conflict';
   const examContextNeedsInfo = examContext?.overall_status === 'more_info';
-  const examContextReady = !!examContext && !examContextConflict && !examContextNeedsInfo;
+  const examContextReady = examContext?.overall_status === 'compatible' && examContext?.exact_exam_context_satisfied === true;
+  const examContextDeferred = examContext?.overall_status === 'compatible' && examContext?.exact_exam_context_satisfied === false;
 
   function questionVisible(q: DeviceQuestion) {
     if (!q.show_when) return true;
@@ -364,9 +367,17 @@ export default function QuickCheckScreen() {
   }
 
   const headline = result?.display_status || (result?.status === 'guidance' ? 'MANUFACTURER MRI LABELING' : 'MRI LABELING RESULT');
-  const requirementBorder = examContextConflict ? palette.danger : examContextNeedsInfo ? palette.conditional : examContextReady ? palette.safe : palette.conditional;
-  const requirementLabel = examContextConflict ? 'SELECTED EXAM CONFLICT' : examContextNeedsInfo ? 'MANUFACTURER EXAM DETAILS STILL NEEDED' : examContextReady ? 'SELECTED EXAM DETAILS RECORDED' : 'MANUFACTURER EXAM-DETAIL REQUIREMENTS';
-  const requirementLabelColor = examContextConflict ? palette.danger : examContextNeedsInfo ? palette.conditional : examContextReady ? palette.safe : palette.conditional;
+  const requirementBorder = examContextConflict ? palette.danger : examContextReady ? palette.safe : palette.conditional;
+  const requirementLabel = examContextConflict
+    ? 'SELECTED EXAM CONFLICT'
+    : examContextNeedsInfo
+      ? 'MANUFACTURER EXAM DETAILS STILL NEEDED'
+      : examContextReady
+        ? 'SELECTED EXAM DETAILS RESOLVED'
+        : examContextDeferred
+          ? 'EXAM DETAILS RECORDED — DEVICE-SPECIFIC CHECK REQUIRED'
+          : 'MANUFACTURER EXAM-DETAIL REQUIREMENTS';
+  const requirementLabelColor = examContextConflict ? palette.danger : examContextReady ? palette.safe : palette.conditional;
 
   return <ScrollView contentInsetAdjustmentBehavior="automatic" keyboardDismissMode="interactive" keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 16, paddingBottom: 60, gap: 22 }}>
     <SectionTitle step="OPTIONAL" title="Your scanner" detail="Your default saved scanner is selected automatically. Choose Scanner unknown when you only need the manufacturer's labeling." />
