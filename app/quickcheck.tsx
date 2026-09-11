@@ -16,7 +16,7 @@ type QuestionOption = { value: string; label: string };
 type DeviceQuestion = { key: string; label: string; type: 'boolean' | 'choice' | 'text' | 'number' | 'serial'; required_for_exact_check?: boolean; required_when_shown?: boolean; required_for_model?: string | null; danger_if_false?: boolean; help?: string | null; show_when?: Record<string, unknown>; options?: QuestionOption[] };
 type GuidanceCondition = { id: string; mr_status?: string; field_strength_min_t?: number | null; field_strength_max_t?: number | null; field_strength_text?: string | null; scan_region?: string | null; max_spatial_gradient_g_cm?: number | null; max_slew_rate_t_m_s?: number | null; max_whole_body_sar_w_kg?: number | null; max_head_sar_w_kg?: number | null; max_b1_rms_ut?: number | null; coil_requirements?: string | null; operating_mode?: string | null; positioning_requirements?: string | null; programming_requirements?: string | null; monitoring_requirements?: string | null; lead_requirements?: string | null; other_conditions?: string | null; matches_selected_scanner?: boolean | null; source?: { title?: string; source_url?: string; document_version?: string; effective_date?: string } };
 
-const SCAN_REGIONS = ['Head', 'Brain', 'C-spine', 'T-spine', 'L-spine', 'Chest', 'Abdomen', 'Pelvis', 'Upper extremity', 'Lower extremity', 'Full body'];
+const SCAN_REGIONS = ['Head', 'Brain', 'C-spine', 'T-spine', 'L-spine', 'Chest', 'Abdomen', 'Pelvis', 'Shoulder', 'Elbow', 'Wrist / hand', 'Hip', 'Knee', 'Ankle / foot', 'Upper extremity', 'Lower extremity', 'Full body'];
 const COIL_TYPES = [
   ['receive_only', 'Receive-only RF coil'],
   ['transmit_receive', 'Transmit / receive (T/R) RF coil'],
