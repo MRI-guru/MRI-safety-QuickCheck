@@ -7,7 +7,7 @@ import { AppErrorBoundary } from '@/components/app-error-boundary';
 import { supabase } from '@/lib/supabase';
 import { palette } from '@/lib/theme';
 
-const PUBLIC_AUTH_ROUTES = new Set(['sign-in', 'sign-up', 'forgot-password', 'reset-password']);
+const PUBLIC_AUTH_ROUTES = new Set(['sign-in', 'sign-up', 'forgot-password', 'reset-password', 'privacy']);
 
 function getAuthParam(url: string, key: string) {
   try {
