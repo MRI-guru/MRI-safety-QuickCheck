@@ -1,0 +1,67 @@
+name: One-time Result Tone Hardening
+
+on:
+  push:
+    branches:
+      - beta-hardening-typecheck-20260906
+    paths:
+      - .github/workflows/harden-result-tone-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  harden:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: beta-hardening-typecheck-20260906
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Harden fail-closed display precedence
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('app/quickcheck.tsx')
+          text = path.read_text()
+          old_tone = """  const tone = useMemo(() => {\n    if (result?.safe_to_scan === true || result?.conditions_met === true || result?.status === 'safe') return 'safe';\n    if (result?.hard_conflict === true || result?.status === 'unsafe' || result?.status === 'not_cleared') return 'danger';\n    if (result?.status === 'conditional' || result?.status === 'guidance') return 'conditional';\n    return 'unknown';\n  }, [result]);"""
+          new_tone = """  const tone = useMemo(() => {\n    // Fail-closed visual precedence: a hard conflict must never render green even if stale/contradictory\n    // response fields also contain a previously confirmed condition flag.\n    if (result?.hard_conflict === true || result?.status === 'unsafe' || result?.status === 'not_cleared') return 'danger';\n    if (result?.safe_to_scan === true || result?.conditions_met === true || result?.status === 'safe') return 'safe';\n    if (result?.status === 'conditional' || result?.status === 'guidance') return 'conditional';\n    return 'unknown';\n  }, [result]);"""
+          if old_tone not in text:
+              raise SystemExit('Expected tone block not found; refusing to patch another QuickCheck version.')
+          text = text.replace(old_tone, new_tone, 1)
+
+          old_context = """  const examContextConflict = examContext?.overall_status === 'conflict';\n  const examContextNeedsInfo = examContext?.overall_status === 'more_info';\n  const examContextReady = !!examContext && !examContextConflict && !examContextNeedsInfo;"""
+          new_context = """  const examContextConflict = examContext?.overall_status === 'conflict';\n  const examContextNeedsInfo = examContext?.overall_status === 'more_info';\n  const examContextReady = examContext?.overall_status === 'compatible' && examContext?.exact_exam_context_satisfied === true;\n  const examContextDeferred = examContext?.overall_status === 'compatible' && examContext?.exact_exam_context_satisfied === false;"""
+          if old_context not in text:
+              raise SystemExit('Expected exam-context state block not found; refusing to patch another QuickCheck version.')
+          text = text.replace(old_context, new_context, 1)
+
+          old_labels = """  const requirementBorder = examContextConflict ? palette.danger : examContextNeedsInfo ? palette.conditional : examContextReady ? palette.safe : palette.conditional;\n  const requirementLabel = examContextConflict ? 'SELECTED EXAM CONFLICT' : examContextNeedsInfo ? 'MANUFACTURER EXAM DETAILS STILL NEEDED' : examContextReady ? 'SELECTED EXAM DETAILS RECORDED' : 'MANUFACTURER EXAM-DETAIL REQUIREMENTS';\n  const requirementLabelColor = examContextConflict ? palette.danger : examContextNeedsInfo ? palette.conditional : examContextReady ? palette.safe : palette.conditional;"""
+          new_labels = """  const requirementBorder = examContextConflict ? palette.danger : examContextReady ? palette.safe : palette.conditional;\n  const requirementLabel = examContextConflict\n    ? 'SELECTED EXAM CONFLICT'\n    : examContextNeedsInfo\n      ? 'MANUFACTURER EXAM DETAILS STILL NEEDED'\n      : examContextReady\n        ? 'SELECTED EXAM DETAILS RESOLVED'\n        : examContextDeferred\n          ? 'EXAM DETAILS RECORDED — DEVICE-SPECIFIC CHECK REQUIRED'\n          : 'MANUFACTURER EXAM-DETAIL REQUIREMENTS';\n  const requirementLabelColor = examContextConflict ? palette.danger : examContextReady ? palette.safe : palette.conditional;"""
+          if old_labels not in text:
+              raise SystemExit('Expected requirement label block not found; refusing to patch another QuickCheck version.')
+          text = text.replace(old_labels, new_labels, 1)
+          path.write_text(text)
+          PY
+      - name: Clean install
+        run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Expo Doctor
+        run: npx expo-doctor
+      - name: Commit hardening
+        shell: bash
+        run: |
+          if git diff --quiet -- app/quickcheck.tsx; then
+            echo 'No result-tone changes needed.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/quickcheck.tsx
+          git commit -m 'Harden fail-closed QuickCheck result display'
+          git push origin HEAD:beta-hardening-typecheck-20260906
