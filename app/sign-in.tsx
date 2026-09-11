@@ -171,6 +171,10 @@ export default function SignInScreen() {
           <Text selectable style={{ color: palette.brand, fontSize: 16, fontWeight: '900' }}>Create account</Text>
         </Pressable>
 
+        <Pressable onPress={() => router.push('/privacy')} disabled={busy} hitSlop={8} style={{ alignSelf: 'center', opacity: busy ? 0.5 : 1, paddingVertical: 4 }}>
+          <Text selectable style={{ color: palette.brand, fontSize: 13, fontWeight: '800' }}>Privacy Policy</Text>
+        </Pressable>
+
         {savedLoginAvailable ? (
           <Pressable onPress={removeSavedLogin} disabled={busy} hitSlop={8} style={{ alignSelf: 'center', opacity: busy ? 0.5 : 1, paddingVertical: 4 }}>
             <Text selectable style={{ color: palette.muted, fontSize: 13, fontWeight: '700' }}>Remove saved login</Text>
