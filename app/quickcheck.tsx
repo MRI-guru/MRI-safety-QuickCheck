@@ -24,7 +24,7 @@ const COIL_TYPES = [
   ['body_transmit_receive', 'Body transmit / receive coil']
 ] as const;
 const DEVICE_CATEGORIES = [['Pain Pump', 'pain pump'], ['SCS', 'SCS'], ['DBS', 'DBS'], ['SNM', 'SNM'], ['VNS', 'VNS'], ['Pacemaker', 'pacemaker'], ['ICD / Defib', 'ICD'], ['Loop Recorder', 'loop recorder']] as const;
-const STANDARD_EXACT_BASES = new Set(['generator_specific_manufacturer_eligibility', 'manufacturer_verified_component_set', 'preverified_exact_system', 'cardiac_componentless_manufacturer_labeling']);
+const STANDARD_EXACT_BASES = new Set(['generator_specific_manufacturer_eligibility', 'manufacturer_verified_component_set', 'preverified_exact_system', 'cardiac_componentless_manufacturer_labeling', 'livanova_vns_manufacturer_pathway']);
 
 function SectionTitle({ step, title, detail }: { step: string; title: string; detail: string }) {
   return <View style={{ gap: 4 }}><Text style={{ color: palette.brand, fontSize: 12, fontWeight: '800', letterSpacing: 0.6 }}>{step}</Text><Text style={{ color: palette.text, fontSize: 21, fontWeight: '800' }}>{title}</Text><Text style={{ color: palette.muted, fontSize: 14, lineHeight: 20 }}>{detail}</Text></View>;
