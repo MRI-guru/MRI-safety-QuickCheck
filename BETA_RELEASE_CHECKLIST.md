@@ -2,7 +2,7 @@
 
 ## Automated release gates
 
-- [x] Highest clinical regression suite v35: 621/621 passing
+- [x] Highest clinical regression suite v36: 626/626 passing
 - [x] Release matrix v2: 16/16 passing
 - [x] Clinical regression v2: 46/46 passing
 - [x] No active verified records lack a displayable manufacturer-guidance pathway
@@ -13,6 +13,8 @@
 - [x] Dedicated fail-closed audit completed for wrong field strength, incomplete cardiac systems, mixed components, unidentified/abandoned leads, unknown devices, and unsupported scanners
 - [x] Body-part and RF-coil exam-context resolver hardened; device-specific pathways now own exclusion-zone/configuration-specific decisions
 - [x] Precise extremity choices added for pathways where broad Upper/Lower Extremity cannot safely resolve eligibility
+- [x] Hard conflicts now have visual precedence over any stale positive result state; unresolved device-specific exam context remains amber rather than green
+- [x] LivaNova VNS exact pathways can now complete the manufacturer-condition confirmation workflow only after the device-specific eligibility check succeeds; incomplete or hard-stop cases remain fail-closed
 - [x] Beta schema/clinical-engine freeze fingerprints recorded; deliberate engine changes require full gate reruns
 
 ## Catalog / labeling
@@ -77,6 +79,7 @@ Testers should specifically exercise:
 - EOS/serial-number exceptions
 - body-region restrictions, including exact shoulder/elbow/wrist/hip/knee/ankle distinctions where applicable
 - RF transmit/receive coil selection and device-specific exclusion-zone pathways
+- LivaNova VNS pathway completion from exact eligibility through all remaining manufacturer-condition confirmations
 - SAR/B1+rms/gradient/programming confirmations
 - pumps requiring pre/post-MRI workflow
 - manufacturer-labeling link/source visibility for every verified implant
