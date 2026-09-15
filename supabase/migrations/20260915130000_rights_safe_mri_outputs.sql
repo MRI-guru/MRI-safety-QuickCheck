@@ -84,6 +84,9 @@ begin
 end;
 $function$;
 
+revoke all on function public.quickcheck_rights_safe_jsonb(jsonb) from anon, public;
+grant execute on function public.quickcheck_rights_safe_jsonb(jsonb) to authenticated;
+
 revoke all on function public.quickcheck_get_device_guidance_rights_safe(uuid,numeric,text) from anon, public;
 revoke all on function public.quickcheck_run_exact_system_check_rights_safe(uuid,jsonb,uuid,numeric,text,text,jsonb) from anon, public;
 revoke all on function public.quickcheck_run_exact_system_check_rights_safe(uuid,jsonb,uuid,numeric,text,text,jsonb,uuid) from anon, public;
