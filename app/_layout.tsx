@@ -4,6 +4,7 @@ import { Stack, router, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import type { Session } from '@supabase/supabase-js';
 import { AppErrorBoundary } from '@/components/app-error-boundary';
+import { SubscriptionProvider } from '@/lib/subscription';
 import { supabase } from '@/lib/supabase';
 import { palette } from '@/lib/theme';
 
@@ -52,8 +53,8 @@ export default function RootLayout() {
     );
   }
 
-  return (
-    <AppErrorBoundary>
+  const navigator = (
+    <>
       <StatusBar style="dark" />
       <Stack
         screenOptions={{
@@ -70,7 +71,15 @@ export default function RootLayout() {
         <Stack.Screen name="reset-password" options={{ title: 'Choose new password' }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="quickcheck" options={{ title: 'New QuickCheck', presentation: 'card' }} />
+        <Stack.Screen name="subscription" options={{ title: 'MRI Safety QuickCheck Pro', presentation: 'card' }} />
+        <Stack.Screen name="privacy" options={{ title: 'Privacy Policy', presentation: 'card' }} />
       </Stack>
+    </>
+  );
+
+  return (
+    <AppErrorBoundary>
+      {session ? <SubscriptionProvider appUserId={session.user.id}>{navigator}</SubscriptionProvider> : navigator}
     </AppErrorBoundary>
   );
 }

@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
+import { useSubscription } from '@/lib/subscription';
+import { clearBiometricLogin } from '@/lib/biometric-login';
 import { palette, radii } from '@/lib/theme';
 
 function Row({ icon, title, detail }: { icon: string; title: string; detail: string }) {
@@ -31,6 +33,9 @@ function ActionRow({ icon, title, detail, onPress }: { icon: string; title: stri
 export default function SettingsScreen() {
   const [signingOut, setSigningOut] = useState(false);
   const [message, setMessage] = useState('');
+  const [restoring, setRestoring] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const { customerInfo, isPro, restore } = useSubscription();
   const appVersion = Constants.expoConfig?.version ?? 'unknown';
   const buildNumber = Constants.nativeBuildVersion ?? Constants.expoConfig?.ios?.buildNumber ?? 'unknown';
 
@@ -53,7 +58,7 @@ export default function SettingsScreen() {
   }
 
   async function sendFeedback() {
-    const subject = encodeURIComponent(`MRI Safety QuickCheck Beta Feedback v${appVersion} (${buildNumber})`);
+    const subject = encodeURIComponent(`MRI Safety QuickCheck App Feedback v${appVersion} (${buildNumber})`);
     const body = encodeURIComponent(
       `App version: ${appVersion}\nBuild: ${buildNumber}\n\nWhat I was testing:\n\nWhat happened:\n\nWhat I expected:\n\nDevice/implant involved (if applicable):\n\nScanner involved (if applicable):\n\nPlease do not include patient-identifying information.`
     );
@@ -66,6 +71,44 @@ export default function SettingsScreen() {
       `App version: ${appVersion}\nBuild: ${buildNumber}\n\nManufacturer:\n\nDevice family/model:\n\nExact component/model numbers (if known):\n\nScanner field strength/model:\n\nResult shown in QuickCheck:\n\nWhy the result appears incorrect or incomplete:\n\nManufacturer MRI labeling/source link (if available):\n\nDo not include patient names, DOB, MRN, images, accession numbers, or other patient-identifying information.`
     );
     await Linking.openURL(`mailto:dballas88@gmail.com?subject=${subject}&body=${body}`);
+  }
+
+  async function restoreAccess() {
+    setRestoring(true);
+    setMessage('');
+    const active = await restore();
+    setMessage(active ? 'MRI Safety QuickCheck Pro access restored.' : 'No active subscription was found for this Apple Account.');
+    setRestoring(false);
+  }
+
+  async function deleteAccount() {
+    setDeletingAccount(true);
+    setMessage('');
+    try {
+      const { error } = await supabase.functions.invoke('delete-account', { body: { confirmation: 'DELETE' } });
+      if (error) {
+        setMessage('Unable to delete the account. Check your connection and contact support if the problem continues.');
+        return;
+      }
+      await clearBiometricLogin().catch(() => undefined);
+      await supabase.auth.signOut({ scope: 'local' });
+      router.replace('/sign-in');
+    } catch {
+      setMessage('Unable to delete the account. Check your connection and contact support if the problem continues.');
+    } finally {
+      setDeletingAccount(false);
+    }
+  }
+
+  function confirmAccountDeletion() {
+    Alert.alert(
+      'Permanently delete account?',
+      'This deletes your MRI Safety QuickCheck account, saved scanners, favorites, recent devices, and QuickCheck history. This cannot be undone. Deleting the account does not cancel an Apple subscription; manage or cancel it separately in App Store settings.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete Account', style: 'destructive', onPress: deleteAccount }
+      ]
+    );
   }
 
   return (
@@ -84,14 +127,31 @@ export default function SettingsScreen() {
       </View>
 
       <View style={{ backgroundColor: palette.surface, borderRadius: radii.lg, borderCurve: 'continuous', padding: 18, gap: 18 }}>
-        <Text selectable style={{ color: palette.text, fontSize: 17, fontWeight: '900' }}>Beta support</Text>
+        <Text selectable style={{ color: palette.text, fontSize: 17, fontWeight: '900' }}>Subscription</Text>
+        <Row icon={isPro ? 'checkmark.seal.fill' : 'star.circle.fill'} title={isPro ? 'Pro access active' : 'MRI Safety QuickCheck Pro'} detail={isPro ? 'Your subscription is active.' : '1 month free for eligible new subscribers, then $9.99/month or $99.99/year in the U.S. Store.'} />
+        <View style={{ height: 1, backgroundColor: palette.line }} />
+        <ActionRow icon="creditcard.fill" title={isPro ? 'View subscription options' : 'Start free trial'} detail="Choose monthly or annual access using Apple in-app purchase." onPress={() => router.push('/subscription')} />
+        <View style={{ height: 1, backgroundColor: palette.line }} />
+        <ActionRow icon="arrow.clockwise" title={restoring ? 'Restoring purchases…' : 'Restore purchases'} detail="Restore an existing subscription made with this Apple Account." onPress={restoreAccess} />
+        {isPro ? (
+          <>
+            <View style={{ height: 1, backgroundColor: palette.line }} />
+            <ActionRow icon="gearshape.fill" title="Manage subscription" detail="Change or cancel your plan in App Store account settings." onPress={() => Linking.openURL(customerInfo?.managementURL ?? 'https://apps.apple.com/account/subscriptions')} />
+          </>
+        ) : null}
+      </View>
+
+      <View style={{ backgroundColor: palette.surface, borderRadius: radii.lg, borderCurve: 'continuous', padding: 18, gap: 18 }}>
+        <Text selectable style={{ color: palette.text, fontSize: 17, fontWeight: '900' }}>Support</Text>
         <ActionRow icon="exclamationmark.triangle.fill" title="Report MRI data issue" detail="Use this for incorrect MRI labeling, compatibility results, missing devices, model/component errors, or scanner-condition problems." onPress={reportMriDataIssue} />
         <View style={{ height: 1, backgroundColor: palette.line }} />
-        <ActionRow icon="envelope.fill" title="Send general beta feedback" detail="Use this for app bugs, crashes, navigation, sign-in, or workflow issues. App version and build number are added automatically." onPress={sendFeedback} />
+        <ActionRow icon="envelope.fill" title="Send general app feedback" detail="Use this for app bugs, crashes, navigation, sign-in, or workflow issues. App version and build number are added automatically." onPress={sendFeedback} />
         <View style={{ height: 1, backgroundColor: palette.line }} />
-        <Row icon="hand.raised.fill" title="Privacy" detail="Do not enter patient names, dates of birth, medical record numbers, accession numbers, images, or other patient-identifying information into beta feedback. Account authentication is handled through Supabase." />
+        <Row icon="hand.raised.fill" title="Privacy" detail="Do not enter patient names, dates of birth, medical record numbers, accession numbers, images, or other patient-identifying information into support messages. Account authentication is handled through Supabase." />
         <View style={{ height: 1, backgroundColor: palette.line }} />
-        <Row icon="cross.case.fill" title="Clinical use" detail="Beta testing does not replace manufacturer MRI labeling, institutional policy, or qualified MRI personnel review. Unknown or incomplete implant configurations must remain unresolved until verified." />
+        <ActionRow icon="hand.raised.fill" title="Privacy Policy" detail="Review how account, app, and subscription information is handled." onPress={() => router.push('/privacy')} />
+        <View style={{ height: 1, backgroundColor: palette.line }} />
+        <Row icon="cross.case.fill" title="Clinical use" detail="This app does not replace manufacturer MRI labeling, institutional policy, or qualified MRI personnel review. Unknown or incomplete implant configurations must remain unresolved until verified." />
       </View>
 
       <View style={{ backgroundColor: palette.surface, borderRadius: radii.lg, borderCurve: 'continuous', padding: 18, gap: 10 }}>
@@ -107,6 +167,9 @@ export default function SettingsScreen() {
 
       <Pressable disabled={signingOut} onPress={signOut} style={{ minHeight: 50, opacity: signingOut ? 0.55 : 1, borderRadius: radii.md, borderWidth: 1, borderColor: palette.danger, alignItems: 'center', justifyContent: 'center' }}>
         {signingOut ? <ActivityIndicator color={palette.danger} /> : <Text style={{ color: palette.danger, fontSize: 15, fontWeight: '900' }}>Sign out</Text>}
+      </Pressable>
+      <Pressable disabled={deletingAccount} onPress={confirmAccountDeletion} style={{ minHeight: 50, opacity: deletingAccount ? 0.55 : 1, borderRadius: radii.md, backgroundColor: palette.danger, alignItems: 'center', justifyContent: 'center' }}>
+        {deletingAccount ? <ActivityIndicator color={palette.white} /> : <Text style={{ color: palette.white, fontSize: 15, fontWeight: '900' }}>Delete account and app data</Text>}
       </Pressable>
       {message ? <Text selectable accessibilityLiveRegion="polite" style={{ color: palette.danger, fontSize: 13, lineHeight: 18 }}>{message}</Text> : null}
     </ScrollView>

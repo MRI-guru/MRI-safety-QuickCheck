@@ -1,9 +1,10 @@
-import { Link } from 'expo-router';
+import { Link, router } from 'expo-router';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import { BrandMark } from '@/components/brand-mark';
 import { StatusCard } from '@/components/status-card';
+import { useSubscription } from '@/lib/subscription';
 import { palette, radii, spacing } from '@/lib/theme';
 
 function ActionRow({ icon, title, detail }: { icon: string; title: string; detail: string }) {
@@ -22,6 +23,13 @@ function ActionRow({ icon, title, detail }: { icon: string; title: string; detai
 }
 
 export default function DashboardScreen() {
+  const { isPro, loading } = useSubscription();
+
+  function startQuickCheck() {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    router.push(isPro ? '/quickcheck' : '/subscription');
+  }
+
   return (
     <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={{ padding: spacing.md, paddingBottom: 40, gap: 18 }}>
       <BrandMark />
@@ -42,9 +50,9 @@ export default function DashboardScreen() {
         </Link>
       </View>
 
-      <Link href="/quickcheck" asChild>
-        <Pressable
-          onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)}
+      <Pressable
+          onPress={startQuickCheck}
+          disabled={loading}
           style={{ backgroundColor: palette.brand, borderRadius: radii.lg, borderCurve: 'continuous', padding: 22, gap: 14, boxShadow: '0 10px 28px rgba(10,85,122,0.24)' }}
         >
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -54,11 +62,10 @@ export default function DashboardScreen() {
             <Image source="sf:arrow.up.right" style={{ width: 22, height: 22 }} tintColor={palette.white} />
           </View>
           <View style={{ gap: 5 }}>
-            <Text selectable style={{ color: palette.white, fontSize: 28, fontWeight: '900', letterSpacing: -0.8 }}>New QuickCheck</Text>
-            <Text selectable style={{ color: 'rgba(255,255,255,0.82)', fontSize: 15, lineHeight: 21 }}>Scanner → device → exact components → manufacturer conditions.</Text>
+            <Text selectable style={{ color: palette.white, fontSize: 28, fontWeight: '900', letterSpacing: -0.8 }}>{loading ? 'Checking access…' : 'New QuickCheck'}</Text>
+            <Text selectable style={{ color: 'rgba(255,255,255,0.82)', fontSize: 15, lineHeight: 21 }}>{isPro ? 'Scanner → device → exact components → manufacturer conditions.' : 'Start a 1-month free trial, then choose monthly or annual access.'}</Text>
           </View>
         </Pressable>
-      </Link>
 
       <View style={{ gap: 10 }}>
         <Text selectable style={{ color: palette.text, fontSize: 18, fontWeight: '800' }}>How results read</Text>
